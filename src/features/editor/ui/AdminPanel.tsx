@@ -5,6 +5,7 @@ import Image from 'next/image';
 import type { Inquiry, Media, Post } from '../../../../server/types';
 import { escapeHtml, renderBody } from '../../../../server/validation';
 import { AssistantEditor, PortfolioEditor } from './ExperienceEditors';
+import { mediaLimits } from '@/shared/config/media';
 
 type Draft = Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'revision'> & {
   id?: string;
@@ -39,16 +40,19 @@ export function AdminPanel() {
   );
   const [posts, setPosts] = useState<Post[]>([]);
   const [media, setMedia] = useState<Media[]>([]);
+  const [usage, setUsage] = useState({ used: 0, limit: mediaLimits.library as number });
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [draft, setDraft] = useState<Draft>(blank);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const textArea = useRef<HTMLTextAreaElement>(null);
+  const uploadController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -57,16 +61,18 @@ export function AdminPanel() {
         const session = await api<{ email: string; local: boolean }>('session', {
           signal: controller.signal,
         });
-        const [saved, files, leads] = await Promise.all([
+        const [saved, files, leads, storage] = await Promise.all([
           api<Post[]>('posts', { signal: controller.signal }),
           api<Media[]>('media', { signal: controller.signal }),
           api<Inquiry[]>('inquiries', { signal: controller.signal }),
+          api<typeof usage>('media/usage', { signal: controller.signal }),
         ]);
         if (!controller.signal.aborted) {
           setUser(session);
           setPosts(saved);
           setMedia(files);
           setInquiries(leads);
+          setUsage(storage);
         }
       } catch (e) {
         if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Unable to load');
@@ -75,7 +81,10 @@ export function AdminPanel() {
       }
     }
     void load();
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      uploadController.current?.abort();
+    };
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;
@@ -171,19 +180,52 @@ export function AdminPanel() {
     }
   }
   async function upload(file: File | undefined) {
-    if (!file || busy) return;
+    if (!file || busy || uploadController.current) return;
+    const controller = new AbortController();
+    uploadController.current = controller;
     setBusy(true);
     setError('');
     setMessage('');
+    setUploadProgress(0);
+    let pending: string | undefined;
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const saved = await api<Media>('media', { method: 'POST', body: form });
+      const meta = await api<Media>('media/uploads', {
+        signal: controller.signal,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: file.name.slice(0, 180),
+          size: file.size,
+          type: file.name.toLowerCase().endsWith('.vtt') ? 'text/vtt' : file.type,
+        }),
+      });
+      pending = meta.key;
+      for (let offset = 0, part = 0; offset < file.size; offset += mediaLimits.chunk, part++) {
+        await api(`media/uploads/${meta.key}/${part}`, {
+          signal: controller.signal,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: file.slice(offset, offset + mediaLimits.chunk),
+        });
+        setUploadProgress(
+          Math.round((Math.min(offset + mediaLimits.chunk, file.size) / file.size) * 100),
+        );
+      }
+      const saved = await api<Media>(`media/uploads/${meta.key}/complete`, {
+        method: 'POST',
+        signal: controller.signal,
+      });
+      pending = undefined;
       setMedia((current) => [saved, ...current]);
+      setUsage((current) => ({ ...current, used: current.used + saved.size }));
       setMessage(t('رسانه بارگذاری شد.', 'Media uploaded.'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed');
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
+      if (pending)
+        await api(`media/uploads/${pending}`, { method: 'DELETE' }).catch(() => undefined);
+      setUploadProgress(null);
+      uploadController.current = null;
       setBusy(false);
       if (fileInput.current) fileInput.current.value = '';
     }
@@ -196,6 +238,27 @@ export function AdminPanel() {
     });
     setTab('posts');
     setPreview(false);
+  }
+
+  async function removeMedia(file: Media) {
+    if (
+      busy ||
+      !window.confirm(t('این فایل از کتابخانه حذف شود؟', 'Delete this file from the library?'))
+    )
+      return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await api(`media/${file.key}`, { method: 'DELETE' });
+      setMedia((current) => current.filter((item) => item.key !== file.key));
+      setUsage((current) => ({ ...current, used: Math.max(0, current.used - file.size) }));
+      setMessage(t('رسانه حذف شد.', 'Media deleted.'));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to delete');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -564,12 +627,42 @@ export function AdminPanel() {
                       onChange={(e) => void upload(e.target.files?.[0])}
                     />
                   </div>
+                  {uploadProgress !== null && (
+                    <div className="upload-progress">
+                      <label htmlFor="upload-progress">
+                        {t('پیشرفت بارگذاری', 'Upload progress')}{' '}
+                        <span dir="ltr">{uploadProgress}%</span>
+                      </label>
+                      <progress id="upload-progress" max={100} value={uploadProgress} />
+                    </div>
+                  )}
                   <p className="editor-help">
                     {t(
                       'عکس: JPEG، PNG، WebP تا ۸ مگابایت. ویدئو: MP4، WebM تا ۲۰ مگابایت.',
                       'Images: JPEG, PNG, WebP up to 8 MB. Videos: MP4, WebM up to 20 MB. WebVTT captions: up to 512 KB.',
                     )}
                   </p>
+                  <div className="media-storage">
+                    <label htmlFor="storage-meter">
+                      {t('فضای رسانه در D1', 'D1 media storage')}{' '}
+                      <span dir="ltr">
+                        {(usage.used / 1_000_000).toFixed(1)} / {usage.limit / 1_000_000} MB
+                      </span>
+                    </label>
+                    <meter
+                      id="storage-meter"
+                      min={0}
+                      max={usage.limit}
+                      value={usage.used}
+                      high={usage.limit * 0.9}
+                    />
+                    <p>
+                      {t(
+                        'فایل‌های استفاده‌نشده را حذف کنید. عکس‌های فشرده و ویدئوهای کوتاه فضای کمتری می‌گیرند.',
+                        'Remove unused files to recover space. Compressed images and short films keep the library small.',
+                      )}
+                    </p>
+                  </div>
                   <div className="media-grid">
                     {media.map((file) => (
                       <article key={file.key}>
@@ -621,6 +714,13 @@ export function AdminPanel() {
                           <a href={`/media/${file.key}`} target="_blank" rel="noreferrer">
                             ↗
                           </a>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void removeMedia(file)}
+                          >
+                            {t('حذف', 'Delete file')}
+                          </button>
                         </div>
                       </article>
                     ))}

@@ -1,6 +1,6 @@
 # Barghino — current, considered
 
-Persian-first electrical contracting showcase: a restrained pulse shader, a moving media gallery and a four-question project brief. Next.js statically renders the bilingual landing and admin shell. A Cloudflare Worker serves the live CMS, journal, media and Groq assistant.
+Persian-first electrical contracting showcase: a reactive site-wide pulse shader and interactive smart-current lens, a moving media gallery and a four-question project brief. Next.js statically renders the bilingual landing and admin shell. A Cloudflare Worker serves the live CMS, journal, media and Groq assistant.
 
 ## Local preview
 
@@ -18,7 +18,7 @@ npm run preview
 
 The integrated preview binds to loopback, validates the Host header and grants local editor access. Production has no local-auth bypass. `npm run dev` is frontend-only; use build + preview for the CMS. Restart preview after server changes. Optional starter articles: `npm run content:seed`.
 
-Local data lives in `.data/content.sqlite` and `.data/media/`, excluded from Git. Back up both before moving your local installation. `CONTENT_DIR` and `PORT` override their defaults. Local data is not automatically uploaded to Cloudflare.
+Local content and media live in `.data/content.sqlite`, excluded from Git. Back up the SQLite database using SQLite's backup tools (or stop the preview before copying it). Legacy `.data/media/` files are imported into SQLite on startup and retained as a backup. `CONTENT_DIR` and `PORT` override their defaults. Local data is not automatically uploaded to Cloudflare.
 
 To connect Groq locally, create the ignored `.dev.vars` file containing `GROQ_API_KEY=your-key`, then restart preview. Production uses a Worker secret. Never use a `NEXT_PUBLIC_` variable for credentials.
 
@@ -28,6 +28,7 @@ To connect Groq locally, create the ignored `.dev.vars` file containing `GROQ_AP
 src/app/[[...locale]]/            server-rendered home, metadata and fa/en root layout
 src/app/admin/                   separate noindex admin shell
 src/widgets/pulse-background/    one demand-rendered shader Canvas and DOM switch
+src/widgets/brands/              equipment and installation tool brands
 src/widgets/work-gallery/        mirrored carousel, swipe controls and media dialog
 src/features/project-brief/     four professional selections and contact handoff
 src/features/assistant/         accessible assistant dialog; in-memory conversation
@@ -35,7 +36,7 @@ src/features/editor/            journal, media, portfolio, assistant settings an
 src/entities/experience/        request-isolated Zustand state and motion preferences
 src/shared/config/              locales, short copy and labeled concept previews
 server/                         bounded HTTP API, validation, SQL repository, journal HTML
-worker/index.ts                 D1, private R2 bucket and Cloudflare Access JWT adapter
+worker/index.ts                 one D1 database and Cloudflare Access JWT adapter
 migrations/                     content, portfolio, settings and rate-limit schemas
 scripts/                        local SQLite preview, optional seed and export normalization
 public/previews/                optimized AI concept imagery, not completed projects
@@ -67,7 +68,7 @@ The assistant uses server-only Groq credentials, owner-editable persona/knowledg
 
 ## Deployment and verification
 
-See [Cloudflare deployment](docs/DEPLOYMENT.md) for D1/R2, Access, Groq secrets, Git integration and a future domain. This application targets **Workers with static assets**; a plain static Pages upload does not run its CMS/API.
+See [Cloudflare deployment](docs/DEPLOYMENT.md) for D1, Access, Groq secrets, Git integration and a future domain. This application targets **Workers with static assets**; a plain static Pages upload does not run its CMS/API.
 
 ```sh
 npm run lint
@@ -76,9 +77,14 @@ npm test
 npm run build
 npm run test:e2e
 npm run worker:check
+npm run test:d1
 npm audit
 ```
 
-The Edge suite uses port 3200 and isolated test content. It verifies server HTML, mobile layouts, carousel/swipe/dialog controls, actual GPU uniforms and pause/offscreen/reduced-motion behavior, context loss, locale switching, journal publishing, portfolio administration, guided enquiry persistence and assistant success/failure UI. Groq responses in browser tests are mocked; unit tests check the real server request construction with a substituted provider transport. Worker dry-run bundles without deploying. Remote D1/R2 and Access sign-in need the configured Cloudflare account.
+Media uses 256 KiB BLOB chunks in D1. The admin sends one chunk per request; each streaming read retrieves at most four rows (1 MiB). Byte-range requests support video seeking; public full responses use the Worker Cache API and immutable browser caching. The media library is capped at 400 MB, reserving room below D1 Free's 500 MB database limit for content and SQLite overhead. Abandoned uploads expire after an hour and are cleared on the next upload. Admin shows usage and can delete unused media. Article/gallery references are transactionally protected; referenced files cannot be removed. Files are public and browser/edge cached copies may remain after deletion. This is a bounded library for compressed images and short films, not unlimited video hosting.
+
+The Edge suite uses port 3200 and isolated test content. It verifies server HTML, mobile layouts, carousel/swipe/dialog controls, actual GPU uniforms and pause/reduced-motion and cross-section behavior, context loss, locale switching, journal publishing, portfolio administration, guided enquiry persistence and assistant success/failure UI. Groq responses in browser tests are mocked; unit tests check the real server request construction with a substituted provider transport. Worker dry-run bundles without deploying. Remote D1 and Access sign-in need the configured Cloudflare account.
 
 Concept preview prompts and asset provenance: [visual assets](docs/VISUAL-ASSETS.md).
+
+`test:d1` runs an isolated Miniflare D1/Worker check for binary uploads, ranges, protected admin and transactional file deletion. It creates no remote resources.

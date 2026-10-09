@@ -491,3 +491,42 @@ html[lang="fa"] .admin-title h1 {
     grid-template-columns: 1fr;
   }
 }
+
+.media-storage {
+  padding: 20px;
+  margin-block: 20px;
+  border: 1px solid var(--line);
+  background: #00f0ff05;
+}
+.media-storage label {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 13px;
+}
+.media-storage meter {
+  display: block;
+  inline-size: 100%;
+  block-size: 12px;
+  margin-block: 15px;
+}
+.media-storage p {
+  font-size: 12px;
+  color: var(--quiet);
+  line-height: 1.8;
+}
+
+.upload-progress {
+  padding-block: 15px;
+}
+.upload-progress label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.upload-progress progress {
+  inline-size: 100%;
+  block-size: 8px;
+  margin-block: 12px;
+  accent-color: var(--accent);
+}

@@ -6,6 +6,8 @@ import { PulseBackground, CurrentControl } from '@/widgets/pulse-background/ui/P
 import { WorkGallery } from '@/widgets/work-gallery/ui/WorkGallery';
 import { ProjectBrief } from '@/features/project-brief/ui/ProjectBrief';
 import { Assistant } from '@/features/assistant/ui/Assistant';
+import { SmartSignal } from '@/widgets/pulse-background/ui/SmartSignal';
+import { Brands } from '@/widgets/brands/ui/Brands';
 
 export default async function Home({ params }: { params: Promise<{ locale?: string[] }> }) {
   const locale = resolveLocale((await params).locale);
@@ -14,6 +16,7 @@ export default async function Home({ params }: { params: Promise<{ locale?: stri
   const fa = locale === 'fa';
   return (
     <div className="showcase-shell">
+      <PulseBackground />
       <header className="site-header">
         <a
           className="brand"
@@ -42,12 +45,6 @@ export default async function Home({ params }: { params: Promise<{ locale?: stri
       </header>
       <main id="main">
         <section className="landing-section" id="idea" aria-labelledby="hero-title">
-          <PulseBackground />
-          <div className="landing-registration" aria-hidden="true">
-            <span>01 / THE IDEA</span>
-            <i />
-            <span>POWER. WITH PURPOSE.</span>
-          </div>
           <div className="hero-editorial">
             <p className="eyebrow">
               <span className="status-dot" />
@@ -68,6 +65,7 @@ export default async function Home({ params }: { params: Promise<{ locale?: stri
               </a>
             </div>
           </div>
+          <SmartSignal />
           <div className="hero-bottom">
             <CurrentControl />
             <div className="expertise-index">
@@ -104,6 +102,7 @@ export default async function Home({ params }: { params: Promise<{ locale?: stri
             </p>
           </div>
         </section>
+        <Brands locale={locale} />
         <section className="project-section" id="project" aria-labelledby="project-title">
           <div className="project-intro">
             <span className="chapter-index" dir="ltr">

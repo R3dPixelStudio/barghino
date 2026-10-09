@@ -101,6 +101,13 @@ h3 {
 }
 .showcase-shell {
   overflow: clip;
+  isolation: isolate;
+  position: relative;
+}
+.showcase-shell > main,
+.showcase-shell > footer {
+  position: relative;
+  z-index: 1;
 }
 .site-header {
   position: relative;
@@ -183,8 +190,9 @@ h3 {
   justify-content: space-between;
 }
 .pulse-background {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
   opacity: 0.8;
 }
@@ -454,7 +462,7 @@ html[lang="fa"] .hero-editorial h1 i {
 }
 .work-section {
   padding-block: 110px 55px;
-  background: #1b1d1e;
+  background: #1b1d1e70;
   border-block-start: 1px solid var(--line);
 }
 .section-heading {
@@ -1535,4 +1543,369 @@ textarea {
 html[lang="fa"] .landing-registration {
   right: auto;
   left: var(--gutter);
+}
+
+/* The signal lens is an abstract control visualization, never a wiring diagram. */
+.smart-signal {
+  position: absolute;
+  inset-inline-end: var(--gutter);
+  inset-block-start: 125px;
+  inline-size: clamp(300px, 30vw, 460px);
+  z-index: 1;
+}
+.signal-registration {
+  display: flex;
+  justify-content: space-between;
+  font:
+    9px "Geist Variable",
+    sans-serif;
+  letter-spacing: 0.12em;
+  color: #888e90;
+}
+.signal-registration > span:last-child {
+  color: var(--accent);
+  font-size: 18px;
+}
+.signal-lens {
+  position: relative;
+  margin-block: 14px 22px;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, #00f0ff08 0%, #00f0ff03 48%, transparent 69%);
+}
+.signal-lens svg {
+  inline-size: 100%;
+  block-size: 100%;
+  stroke: #727e8450;
+  stroke-width: 1;
+  overflow: visible;
+}
+.lens-boundary {
+  stroke: #737b7938;
+}
+.lens-orbit {
+  transform-origin: 200px 200px;
+}
+.lens-inner {
+  stroke: #00f0ff28;
+}
+.lens-wave {
+  stroke: #56656c;
+  opacity: 0.55;
+  transition:
+    stroke 0.5s,
+    opacity 0.5s;
+}
+.lens-core {
+  fill: #192023;
+  stroke: #65797c;
+}
+.lens-bolt {
+  fill: #9aadae;
+  stroke: none;
+  transition: fill 0.5s;
+}
+.lens-node {
+  fill: #64868b;
+  stroke: none;
+}
+.lens-ripple {
+  stroke: var(--accent);
+  opacity: 0;
+  transform-origin: 200px 200px;
+}
+.signal-state {
+  position: absolute;
+  inset-block-end: 11%;
+  inset-inline: 0;
+  text-align: center;
+  font:
+    9px "Geist Variable",
+    sans-serif;
+  letter-spacing: 0.16em;
+  color: #778b91;
+}
+.smart-signal[data-powered="true"] .signal-lens {
+  background: radial-gradient(circle, #00f0ff12 0%, #00f0ff05 48%, transparent 69%);
+}
+.smart-signal[data-powered="true"] .lens-wave {
+  stroke: #00f0ff;
+  opacity: 0.8;
+}
+.smart-signal[data-powered="true"] .lens-bolt,
+.smart-signal[data-powered="true"] .lens-node {
+  fill: var(--accent);
+}
+.smart-signal[data-powered="true"] .lens-core {
+  stroke: #00f0ff80;
+}
+.smart-signal[data-powered="true"] .signal-state {
+  color: var(--accent);
+}
+.smart-signal[data-animate="true"] .lens-orbit {
+  animation: signal-orbit 32s linear infinite;
+}
+.smart-signal[data-animate="true"] .lens-wave {
+  stroke-dasharray: 190 70;
+  animation: signal-flow 4s linear infinite;
+}
+.smart-signal[data-animate="true"] .lens-ripple {
+  animation: signal-ripple 4s ease-out infinite;
+}
+.smart-signal[data-animate="true"] .ripple-two {
+  animation-delay: 2s;
+}
+.smart-signal[data-mode="1"] .lens-wave {
+  transform: scaleY(0.55);
+  transform-origin: 200px 200px;
+}
+.smart-signal[data-mode="2"] .lens-wave {
+  transform: rotate(90deg);
+  transform-origin: 200px 200px;
+}
+.signal-modes {
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #15191de0;
+}
+.signal-modes button {
+  background: none;
+  border: 0;
+  min-block-size: 62px;
+  padding: 10px 6px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  transition:
+    color 0.3s,
+    background 0.3s;
+}
+.signal-modes button + button {
+  border-inline-start: 1px solid var(--line);
+}
+.signal-modes button > span {
+  font:
+    9px "Geist Variable",
+    sans-serif;
+  color: #879597;
+}
+.signal-modes button[aria-pressed="true"] {
+  color: var(--accent);
+  background: #00f0ff0a;
+}
+.signal-modes button[aria-pressed="true"] > span {
+  color: var(--accent);
+}
+.signal-hint {
+  color: #92999b;
+  font-size: 11px;
+  text-align: center;
+  margin-block: 15px 0;
+}
+@keyframes signal-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes signal-flow {
+  to {
+    stroke-dashoffset: -520;
+  }
+}
+@keyframes signal-ripple {
+  from {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  to {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+.brands-section {
+  padding: 55px var(--gutter) 100px;
+  border-block-start: 1px solid var(--line);
+  background: #15191b55;
+}
+.brands-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 40px;
+  margin-block-end: 45px;
+}
+.brands-heading h2 {
+  font-size: clamp(27px, 2.6vw, 44px);
+  max-inline-size: 600px;
+}
+.brands-heading > p {
+  max-inline-size: 270px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--quiet);
+}
+.brand-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-block: 1px solid var(--line);
+}
+.equipment-brand {
+  padding: 20px 20px 25px;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 192px;
+  gap: 28px;
+  background: #161b1c70;
+  transition: background 0.3s;
+}
+.equipment-brand + .equipment-brand {
+  border-inline-start: 1px solid var(--line);
+}
+.brand-terminal {
+  display: flex;
+  justify-content: space-between;
+  font:
+    9px "Geist Variable",
+    sans-serif;
+  color: #7c898c;
+}
+.brand-terminal i {
+  font-style: normal;
+  color: #748587;
+}
+.equipment-wordmark {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: start;
+  color: #c3cbcb;
+  gap: 5px;
+  transition: color 0.3s;
+}
+.equipment-wordmark strong {
+  font:
+    650 clamp(17px, 1.65vw, 27px) "Geist Variable",
+    sans-serif;
+  letter-spacing: -0.05em;
+}
+.equipment-wordmark small {
+  font:
+    9px "Geist Variable",
+    sans-serif;
+  letter-spacing: 0.07em;
+  color: #8e9b9e;
+}
+.viko strong,
+.abb strong {
+  font-size: clamp(23px, 2vw, 32px);
+  letter-spacing: 0.015em;
+}
+.milwaukee strong {
+  font-style: italic;
+}
+.equipment-category {
+  color: #939c9d;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.equipment-brand:hover {
+  background: #00f0ff07;
+}
+.equipment-brand:hover .equipment-wordmark,
+.equipment-brand:hover .brand-terminal i {
+  color: var(--accent);
+}
+html[lang="en"] .hero-editorial h1 {
+  font-size: clamp(78px, 8.4vw, 160px);
+}
+@media (max-width: 1100px) {
+  .brand-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .equipment-brand:nth-child(4) {
+    border-inline-start: 0;
+  }
+  .equipment-brand:nth-child(n + 4) {
+    border-block-start: 1px solid var(--line);
+  }
+  .equipment-wordmark strong {
+    font-size: 27px;
+  }
+  .smart-signal {
+    inline-size: 300px;
+  }
+}
+@media (max-width: 850px) {
+  .smart-signal {
+    position: relative;
+    inset: auto;
+    inline-size: min(350px, 100%);
+    align-self: center;
+    margin-block: 42px 0;
+  }
+  .hero-editorial {
+    inline-size: 100%;
+  }
+  .landing-section {
+    block-size: auto;
+    max-block-size: none;
+  }
+  .hero-bottom {
+    margin-block-start: 45px;
+  }
+}
+@media (max-width: 720px) {
+  html[lang="en"] .hero-editorial h1 {
+    font-size: clamp(59px, 12vw, 88px);
+  }
+  .smart-signal {
+    inline-size: min(320px, 100%);
+  }
+  .signal-lens {
+    margin-block: 6px 12px;
+  }
+  .signal-modes button {
+    min-block-size: 57px;
+  }
+  .brands-section {
+    padding-block: 40px 60px;
+  }
+  .brands-heading {
+    display: block;
+    margin-block-end: 30px;
+  }
+  .brands-heading > p {
+    margin-block-start: 20px;
+  }
+  .brand-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .equipment-brand {
+    min-block-size: 174px;
+    padding: 17px 14px 22px;
+  }
+  .equipment-brand:nth-child(odd) {
+    border-inline-start: 0;
+  }
+  .equipment-brand:nth-child(even) {
+    border-inline-start: 1px solid var(--line);
+  }
+  .equipment-brand:nth-child(n + 3) {
+    border-block-start: 1px solid var(--line);
+  }
+  .equipment-wordmark strong {
+    font-size: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .smart-signal * {
+    animation: none !important;
+  }
 }

@@ -8,6 +8,7 @@ import { detectMedia, renderBody } from '../../server/validation';
 import { authenticate } from '../../worker/index';
 import type { GalleryItem, Post, Services } from '../../server/types';
 import { defaultAssistant } from '../../server/assistant';
+import { mediaLimits } from '../../src/shared/config/media';
 
 const resources: { directory: string; close: () => void }[] = [];
 afterEach(async () => {
@@ -148,6 +149,154 @@ describe('persistent publishing and access boundaries', () => {
     const file = await services.store.getMedia(media.key);
     expect(file?.size).toBe(12);
     expect(file?.type).toBe('image/png');
+  });
+  it('streams binary chunks across boundaries, serves video ranges, HEAD and conditional requests', async () => {
+    const { services } = await setup();
+    const key = `${crypto.randomUUID()}.mp4`;
+    const bytes = Uint8Array.from({ length: mediaLimits.chunk + 71 }, (_, i) => i % 251);
+    await services.store.putMedia(
+      {
+        key,
+        name: 'short-film',
+        type: 'video/mp4',
+        size: bytes.length,
+        createdAt: new Date().toISOString(),
+      },
+      bytes.buffer,
+    );
+    const read = (headers?: HeadersInit, method = 'GET') =>
+      handleContent(
+        new Request(`https://barghino.example/media/${key}`, { headers, method }),
+        services,
+      );
+    const response = await read();
+    if (!response) throw new Error('Missing media response');
+    expect(response?.headers.get('accept-ranges')).toBe('bytes');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+    const start = mediaLimits.chunk - 7;
+    const partial = await read({ Range: `bytes=${start}-${start + 21}` });
+    if (!partial) throw new Error('Missing range response');
+    expect(partial?.status).toBe(206);
+    expect(partial?.headers.get('content-range')).toBe(
+      `bytes ${start}-${start + 21}/${bytes.length}`,
+    );
+    expect(new Uint8Array(await partial.arrayBuffer())).toEqual(bytes.slice(start, start + 22));
+    const suffix = await read({ Range: 'bytes=-10' });
+    if (!suffix) throw new Error('Missing suffix response');
+    expect(new Uint8Array(await suffix.arrayBuffer())).toEqual(bytes.slice(-10));
+    expect((await read({ Range: `bytes=${bytes.length}-` }))?.status).toBe(416);
+    expect((await read({ Range: 'bytes=0-1,5-6' }))?.status).toBe(416);
+    expect((await read({}, 'HEAD'))?.body).toBeNull();
+    expect((await read({ 'If-None-Match': `"${key}"` }))?.status).toBe(304);
+  });
+  it('protects media references transactionally and releases storage when unused files are removed', async () => {
+    const { services, send } = await setup();
+    const key = `${crypto.randomUUID()}.webp`;
+    await services.store.putMedia(
+      { key, name: 'cover', type: 'image/webp', size: 12, createdAt: new Date().toISOString() },
+      new ArrayBuffer(12),
+    );
+    const response = await send('/api/admin/posts', {
+      ...draft,
+      body: `A photo\n\n![Project](/media/${key})`,
+    });
+    const post = (await response?.json()) as Post;
+    expect((await send(`/api/admin/media/${key}`, undefined, 'DELETE'))?.status).toBe(409);
+    await send(`/api/admin/posts/${post.id}`, { revision: post.revision }, 'DELETE');
+    expect((await send(`/api/admin/media/${key}`, undefined, 'DELETE'))?.status).toBe(200);
+    expect(await services.store.mediaUsage()).toEqual({ used: 0, limit: mediaLimits.library });
+    expect(await services.store.getMedia(key)).toBeNull();
+    await expect(
+      services.store.savePost({ ...post, revision: crypto.randomUUID() }, null),
+    ).rejects.toThrow('Referenced media was removed');
+    expect(await services.store.posts()).toEqual([]);
+  });
+  it('rolls back metadata and chunks when the database media quota rejects an upload', async () => {
+    const { services } = await setup();
+    const store = services.store as import('../../server/repository').Repository;
+    await store.db.run(
+      "CREATE TRIGGER test_capacity BEFORE INSERT ON media_payloads BEGIN SELECT RAISE(ABORT, 'media capacity exceeded'); END",
+      [],
+    );
+    const key = `${crypto.randomUUID()}.webp`;
+    await expect(
+      store.putMedia(
+        { key, name: 'quota', type: 'image/webp', size: 4, createdAt: new Date().toISOString() },
+        new ArrayBuffer(4),
+      ),
+    ).rejects.toThrow('library is full');
+    expect(await store.media()).toEqual([]);
+    expect(await store.db.all('SELECT * FROM media_chunks')).toEqual([]);
+  });
+  it('stages bounded chunks, rejects incomplete/out-of-order uploads and releases cancelled reservations', async () => {
+    const { services, send } = await setup();
+    const response = await send('/api/admin/media/uploads', {
+      name: 'film.mp4',
+      type: 'video/mp4',
+      size: mediaLimits.chunk + 12,
+    });
+    const meta = (await response?.json()) as import('../../server/types').Media;
+    const chunk = new Uint8Array(mediaLimits.chunk);
+    chunk.set(new TextEncoder().encode('ftypisom'), 4);
+    const append = (part: number, body: Uint8Array) =>
+      handleContent(
+        new Request(`https://barghino.example/api/admin/media/uploads/${meta.key}/${part}`, {
+          method: 'POST',
+          headers: {
+            Origin: 'https://barghino.example',
+            'Content-Type': 'application/octet-stream',
+          },
+          body: body as BodyInit,
+        }),
+        services,
+      );
+    expect((await append(1, new Uint8Array(12)))?.status).toBe(409);
+    expect((await send(`/api/admin/media/uploads/${meta.key}/complete`, {}, 'POST'))?.status).toBe(
+      409,
+    );
+    expect(await services.store.mediaInfo(meta.key)).toBeNull();
+    expect((await append(0, chunk))?.status).toBe(200);
+    expect((await append(0, chunk))?.status).toBe(409);
+    expect((await append(1, new Uint8Array(12)))?.status).toBe(200);
+    expect((await send(`/api/admin/media/uploads/${meta.key}/complete`, {}, 'POST'))?.status).toBe(
+      201,
+    );
+    expect(await services.store.mediaInfo(meta.key)).toEqual(meta);
+    const staged = await send('/api/admin/media/uploads', {
+      name: 'image.webp',
+      type: 'image/webp',
+      size: 99,
+    });
+    const unused = (await staged?.json()) as import('../../server/types').Media;
+    expect((await services.store.mediaUsage()).used).toBe(meta.size + 99);
+    await send(`/api/admin/media/uploads/${unused.key}`, undefined, 'DELETE');
+    expect((await services.store.mediaUsage()).used).toBe(meta.size);
+  });
+  it('streams the largest supported film within the D1 Free query budget', async () => {
+    const { services } = await setup();
+    const store = services.store as import('../../server/repository').Repository;
+    const meta = {
+      key: `${crypto.randomUUID()}.mp4`,
+      name: 'large.mp4',
+      type: 'video/mp4',
+      size: mediaLimits.upload,
+      createdAt: new Date().toISOString(),
+    };
+    await store.beginMedia(meta);
+    const chunk = new Uint8Array(mediaLimits.chunk);
+    chunk.set(new TextEncoder().encode('ftypisom'), 4);
+    for (let part = 0; part < meta.size / mediaLimits.chunk; part++)
+      expect(await store.appendMedia(meta.key, part, chunk.buffer)).toBe(true);
+    expect(await store.finishMedia(meta.key)).toEqual(meta);
+    let queries = 0;
+    const original = store.db.all;
+    store.db.all = async (...args) => {
+      queries++;
+      return original(...args);
+    };
+    const file = await store.getMedia(meta.key);
+    expect((await new Response(file?.body).arrayBuffer()).byteLength).toBe(meta.size);
+    expect(queries).toBe(21);
   });
   it('fails closed in production without Access configuration and with forged credentials', async () => {
     expect(await authenticate(new Request('https://test.example/admin'), {})).toBeNull();

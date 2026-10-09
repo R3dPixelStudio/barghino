@@ -54,7 +54,14 @@ export interface ContentStore {
   deletePost(id: string, revision: string): Promise<boolean>;
   media(): Promise<Media[]>;
   putMedia(meta: Media, bytes: ArrayBuffer): Promise<void>;
-  getMedia(key: string): Promise<StoredFile | null>;
+  mediaInfo(key: string): Promise<Media | null>;
+  getMedia(key: string, range?: { start: number; end: number }): Promise<StoredFile | null>;
+  deleteMedia(key: string): Promise<boolean>;
+  mediaUsage(): Promise<{ used: number; limit: number }>;
+  beginMedia(meta: Media): Promise<void>;
+  appendMedia(key: string, part: number, bytes: ArrayBuffer): Promise<boolean>;
+  finishMedia(key: string): Promise<Media | null>;
+  cancelMedia(key: string): Promise<void>;
   inquiries(): Promise<Inquiry[]>;
   addInquiry(inquiry: Inquiry, fingerprint: string): Promise<boolean>;
   portfolio(): Promise<GalleryItem[]>;

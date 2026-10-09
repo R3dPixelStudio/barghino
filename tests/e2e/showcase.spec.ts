@@ -11,7 +11,7 @@ test('Persian and English landing content is server rendered without JavaScript'
     await expect(page.locator('h1')).toBeVisible();
     await expect(page.locator('.main-navigation')).toBeVisible();
     expect(await page.locator('h1').innerText()).toContain(locale === 'fa' ? 'جریان' : 'Current.');
-    expect(await page.locator('main > section').count()).toBe(3);
+    expect(await page.locator('main > section').count()).toBe(4);
   }
   await context.close();
 });
@@ -26,6 +26,12 @@ test('the switch energizes the shader and the carousel centers selected media', 
   await page.getByRole('switch').click();
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('.pulse-background')).toHaveAttribute('data-powered', 'true');
+  await page.getByRole('button', { name: 'هوشمندسازی', exact: true }).click();
+  await expect(page.locator('.smart-signal')).toHaveAttribute('data-mode', '2');
+  await expect(page.getByRole('button', { name: 'هوشمندسازی', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await page.screenshot({ path: 'test-results/landing-desktop.png' });
   await page.getByRole('button', { name: 'کار بعدی', exact: true }).click();
   await expect(page.locator('.work-gallery')).toHaveAttribute('data-selected', '1');
@@ -43,10 +49,14 @@ test('the switch energizes the shader and the carousel centers selected media', 
   await expect(page.locator('.gallery-lightbox')).not.toBeVisible();
   await page.waitForTimeout(850);
   await page.screenshot({ path: 'test-results/gallery-desktop.png' });
+  await page.locator('#brands').scrollIntoViewIfNeeded();
+  await expect(page.getByRole('heading', { name: 'جزئیات، از انتخاب شروع می‌شود.' })).toBeVisible();
+  await expect(page.locator('.equipment-brand')).toHaveCount(6);
+  await page.screenshot({ path: 'test-results/brands-desktop.png' });
   expect(errors).toEqual([]);
 });
 
-test('the GPU receives the power uniform and rendering stops on pause, offscreen and reduced motion', async ({
+test('the GPU receives the power uniform and background follows every section and rendering stops on pause and reduced motion', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -101,9 +111,9 @@ test('the GPU receives the power uniform and rendering stops on pause, offscreen
   expect(await count()).toBeGreaterThan(paused);
   await page.locator('#project').scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
-  const offscreen = await count();
+  const onProject = await count();
   await page.waitForTimeout(300);
-  expect(await count()).toBe(offscreen);
+  expect(await count()).toBeGreaterThan(onProject);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.locator('#idea').scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);

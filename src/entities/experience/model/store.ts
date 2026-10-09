@@ -11,6 +11,8 @@ export type ExperienceState = {
   reducedMotion: boolean;
   quality: Quality;
   stage: Stage;
+  signalMode: 0 | 1 | 2;
+  setSignalMode: (mode: 0 | 1 | 2) => void;
   setLocale: (locale: Locale) => void;
   setPowered: (powered: boolean) => void;
   setMotionPaused: (paused: boolean) => void;
@@ -29,6 +31,8 @@ export function createExperienceStore(locale: Locale) {
     reducedMotion: true,
     quality: 'medium',
     stage: 0,
+    signalMode: 0,
+    setSignalMode: (signalMode) => set({ signalMode, powered: true }),
     setLocale: (next) => set({ locale: next, composition: compositionFor(next) }),
     setPowered: (powered) => set({ powered }),
     setMotionPaused: (motionPaused) => set({ motionPaused }),

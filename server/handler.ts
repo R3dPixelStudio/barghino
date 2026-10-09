@@ -9,6 +9,7 @@ import {
   validateWork,
 } from './validation.ts';
 import { chat, defaultAssistant } from './assistant.ts';
+import { mediaLimits } from '../src/shared/config/media.ts';
 
 const maxUpload = 20 * 1024 * 1024;
 const headers = {
@@ -98,7 +99,7 @@ export async function handleContent(
         for (const path of [item.src, item.poster, item.captions].filter(
           (path): path is string => !!path,
         ))
-          if (!(await store.getMedia(path.slice(7))))
+          if (!(await store.mediaInfo(path.slice(7))))
             throw new HttpError(400, 'Uploaded media is missing');
         if (!(await store.saveWork(item, existing?.revision ?? null)))
           throw new HttpError(409, 'The item changed while saving. Reload and retry.');
@@ -141,7 +142,7 @@ export async function handleContent(
           )
         )
           throw new HttpError(409, 'This article URL is already in use');
-        if (post.cover && !(await store.getMedia(post.cover.slice(7))))
+        if (post.cover && !(await store.mediaInfo(post.cover.slice(7))))
           throw new HttpError(400, 'Cover image is missing');
         if (!(await store.savePost(post, existing?.revision ?? null)))
           throw new HttpError(409, 'The post changed while saving. Reload and retry.');
@@ -155,11 +156,84 @@ export async function handleContent(
         return json({ deleted: true });
       }
       if (path === '/api/admin/media' && request.method === 'GET') return json(await store.media());
+      if (path === '/api/admin/media/usage' && request.method === 'GET')
+        return json(await store.mediaUsage());
+      if (path === '/api/admin/media/uploads' && request.method === 'POST') {
+        const data = await readJson(request);
+        const formats: Record<string, string> = {
+          'image/png': 'png',
+          'image/jpeg': 'jpg',
+          'image/webp': 'webp',
+          'video/mp4': 'mp4',
+          'video/webm': 'webm',
+          'text/vtt': 'vtt',
+        };
+        const extension = typeof data.type === 'string' ? formats[data.type] : undefined;
+        if (
+          !extension ||
+          typeof data.name !== 'string' ||
+          !data.name.trim() ||
+          data.name.length > 180 ||
+          typeof data.size !== 'number' ||
+          !Number.isSafeInteger(data.size) ||
+          data.size <= 0 ||
+          data.size > maxUpload
+        )
+          throw new HttpError(400, 'Choose a supported image, video or caption file up to 20 MiB');
+        if (String(data.type).startsWith('image/') && data.size > mediaLimits.image)
+          throw new HttpError(413, 'Images must be 8 MiB or smaller');
+        if (extension === 'vtt' && data.size > 512 * 1024)
+          throw new HttpError(413, 'Captions must be 512 KiB or smaller');
+        const meta = {
+          key: `${crypto.randomUUID()}.${extension}`,
+          name: data.name,
+          type: extension === 'vtt' ? 'text/vtt; charset=utf-8' : String(data.type),
+          size: data.size,
+          createdAt: new Date().toISOString(),
+        };
+        await store.beginMedia(meta);
+        return json(meta, 201);
+      }
+      const upload = path.match(
+        /^\/api\/admin\/media\/uploads\/([a-f0-9-]{36}\.(?:png|jpg|webp|mp4|webm|vtt))(?:\/(\d+|complete))?$/,
+      );
+      if (upload && request.method === 'DELETE' && !upload[2]) {
+        await store.cancelMedia(upload[1]);
+        return json({ cancelled: true });
+      }
+      if (upload && request.method === 'POST') {
+        if (upload[2] === 'complete') {
+          const meta = await store.finishMedia(upload[1]);
+          if (!meta) throw new HttpError(409, 'Upload is incomplete');
+          return json(meta, 201);
+        }
+        if (!upload[2] || request.headers.get('content-type') !== 'application/octet-stream')
+          throw new HttpError(415, 'Send a binary upload chunk');
+        const part = Number(upload[2]);
+        if (!Number.isSafeInteger(part) || part > 80)
+          throw new HttpError(400, 'Invalid upload part');
+        const bytes = await readLimited(request, mediaLimits.chunk);
+        if (!(await store.appendMedia(upload[1], part, bytes.buffer as ArrayBuffer)))
+          throw new HttpError(409, 'The upload chunk is out of order or has the wrong size');
+        return json({ received: true });
+      }
+      const deleteKey = path.match(
+        /^\/api\/admin\/media\/([a-f0-9-]{36}\.(?:png|jpg|webp|mp4|webm|vtt))$/,
+      )?.[1];
+      if (deleteKey && request.method === 'DELETE') {
+        if (!(await store.deleteMedia(deleteKey)))
+          throw new HttpError(
+            409,
+            'Remove this file from articles and gallery items before deleting it.',
+          );
+        return json({ deleted: true });
+      }
       if (path === '/api/admin/media' && request.method === 'POST') {
         const type = request.headers.get('content-type');
         if (!type?.startsWith('multipart/form-data'))
           throw new HttpError(415, 'Use a media upload');
-        const bytes = await readLimited(request, maxUpload + 8192);
+        // Large files use the bounded, staged upload API.
+        const bytes = await readLimited(request, mediaLimits.chunk + 8192);
         let form: FormData;
         try {
           form = await new Response(bytes, {
@@ -169,8 +243,8 @@ export async function handleContent(
           throw new HttpError(400, 'Invalid upload');
         }
         const file = form.get('file');
-        if (!(file instanceof File) || !file.size || file.size > maxUpload)
-          throw new HttpError(400, 'Select an image or video up to 20 MB');
+        if (!(file instanceof File) || !file.size || file.size > mediaLimits.chunk)
+          throw new HttpError(413, 'Use the admin chunked uploader for files above 256 KiB');
         const body = await file.arrayBuffer();
         const detected = detectMedia(new Uint8Array(body));
         if (!detected)
@@ -215,15 +289,62 @@ export async function handleContent(
     if (request.method !== 'GET' && request.method !== 'HEAD') return null;
     const mediaKey = path.match(/^\/media\/([a-f0-9-]{36}\.(?:png|jpg|webp|mp4|webm|vtt))$/)?.[1];
     if (mediaKey) {
-      const media = await store.getMedia(mediaKey);
+      const meta = await store.mediaInfo(mediaKey);
+      if (!meta) throw new HttpError(404, 'Media not found');
+      const etag = `"${mediaKey}"`;
+      const mediaHeaders = {
+        ...headers,
+        'Content-Type': meta.type,
+        'Content-Length': String(meta.size),
+        'Accept-Ranges': 'bytes',
+        ETag: etag,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Security-Policy': "default-src 'none'; sandbox",
+      };
+      if (
+        request.headers
+          .get('if-none-match')
+          ?.split(',')
+          .map((v) => v.trim())
+          .includes(etag)
+      )
+        return new Response(null, { status: 304, headers: mediaHeaders });
+      if (request.method === 'HEAD') return new Response(null, { headers: mediaHeaders });
+      const rangeHeader = request.headers.get('range');
+      const ifRange = request.headers.get('if-range');
+      let range: { start: number; end: number } | undefined;
+      if (rangeHeader && (!ifRange || ifRange === etag)) {
+        const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader);
+        const start = match?.[1] ? Number(match[1]) : Math.max(0, meta.size - Number(match?.[2]));
+        const end =
+          match?.[1] && match[2] ? Math.min(Number(match[2]), meta.size - 1) : meta.size - 1;
+        if (
+          !match ||
+          (!match[1] && !match[2]) ||
+          !Number.isSafeInteger(start) ||
+          !Number.isSafeInteger(end) ||
+          start > end ||
+          start >= meta.size ||
+          (!match[1] && Number(match[2]) === 0)
+        )
+          return new Response(null, {
+            status: 416,
+            headers: {
+              ...mediaHeaders,
+              'Content-Length': '0',
+              'Content-Range': `bytes */${meta.size}`,
+            },
+          });
+        range = { start, end };
+      }
+      const media = await store.getMedia(mediaKey, range);
       if (!media) throw new HttpError(404, 'Media not found');
-      return new Response(request.method === 'HEAD' ? null : media.body, {
+      return new Response(media.body, {
+        status: range ? 206 : 200,
         headers: {
-          ...headers,
-          'Content-Type': media.type,
+          ...mediaHeaders,
           'Content-Length': String(media.size),
-          'Cache-Control': 'public, max-age=31536000, immutable',
-          'Content-Security-Policy': "default-src 'none'; sandbox",
+          ...(range ? { 'Content-Range': `bytes ${range.start}-${range.end}/${meta.size}` } : {}),
         },
       });
     }
