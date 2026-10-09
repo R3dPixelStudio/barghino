@@ -1,11 +1,11 @@
-import type { D1Database, R2Bucket, Fetcher } from '@cloudflare/workers-types';
+import type { D1Database, Fetcher, ExecutionContext } from '@cloudflare/workers-types';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { handleContent } from '../server/handler.ts';
-import { Repository, type DatabaseDriver } from '../server/repository.ts';
+import { Repository } from '../server/repository.ts';
+import { d1Driver } from '../server/d1.ts';
 
 export type Env = {
   DB: D1Database;
-  MEDIA: R2Bucket;
   ASSETS: Fetcher;
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
@@ -47,7 +47,7 @@ export async function authenticate(
 }
 
 export default {
-  async fetch(request: Request, env: Env) {
+  async fetch(request: Request, env: Env, context: ExecutionContext) {
     const url = new URL(request.url);
     let path: string;
     try {
@@ -64,38 +64,22 @@ export default {
         },
       );
     }
-    const driver: DatabaseDriver = {
-      all: async <T>(sql: string, args: (string | number)[] = []) =>
-        (
-          await env.DB.prepare(sql)
-            .bind(...args)
-            .all<T>()
-        ).results,
-      run: async (sql, args) =>
-        (
-          await env.DB.prepare(sql)
-            .bind(...args)
-            .run()
-        ).meta.changes,
-    };
-    const store = new Repository(driver, {
-      put: async (key, body, type) => {
-        await env.MEDIA.put(key, body, { httpMetadata: { contentType: type } });
-      },
-      remove: async (key) => {
-        await env.MEDIA.delete(key);
-      },
-      get: async (key) => {
-        const file = await env.MEDIA.get(key);
-        return file
-          ? {
-              body: file.body as unknown as ReadableStream,
-              type: file.httpMetadata?.contentType ?? 'application/octet-stream',
-              size: file.size,
-            }
-          : null;
-      },
-    });
+    const store = new Repository(d1Driver(env.DB));
+    const cache = (
+      caches as unknown as {
+        default: {
+          match(request: Request): Promise<Response | undefined>;
+          put(request: Request, response: Response): Promise<void>;
+        };
+      }
+    ).default;
+    const cacheable =
+      request.method === 'GET' &&
+      /^\/media\/[a-f0-9-]{36}\.(png|jpg|webp|mp4|webm|vtt)$/.test(path);
+    if (cacheable && !request.headers.has('if-range')) {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+    }
     const response = await handleContent(request, {
       store,
       authenticate: (req) => authenticate(req, env),
@@ -114,6 +98,13 @@ export default {
         ).join('');
       },
     });
+    if (
+      cacheable &&
+      response?.status === 200 &&
+      !request.headers.has('range') &&
+      !request.headers.has('if-none-match')
+    )
+      context.waitUntil(cache.put(request, response.clone()).catch(() => undefined));
     return response ?? env.ASSETS.fetch(request as unknown as Parameters<Fetcher['fetch']>[0]);
   },
 };
