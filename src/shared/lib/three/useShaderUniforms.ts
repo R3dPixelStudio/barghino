@@ -17,7 +17,7 @@ export function useShaderUniforms(
       uTime: { value: 0 },
       uScroll: { value: 0 },
       uPointer: { value: new Vector2(0.5, 0.5) },
-      uNeon: { value: new Color('#00f0ff') },
+      uNeon: { value: new Color('#f7db05') },
     }),
     [],
   );

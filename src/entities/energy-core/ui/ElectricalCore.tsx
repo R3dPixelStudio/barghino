@@ -99,8 +99,8 @@ export function ElectricalCore({ channel, animate }: { channel: MotionChannel; a
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[0.65, 0.018, 8, 64]} />
             <meshStandardMaterial
-              color="#00f0ff"
-              emissive="#00f0ff"
+              color="#f7db05"
+              emissive="#f7db05"
               emissiveIntensity={2}
               toneMapped={false}
             />
@@ -115,8 +115,8 @@ export function ElectricalCore({ channel, animate }: { channel: MotionChannel; a
         <mesh key={x} position={[x, 0, 0.69]}>
           <boxGeometry args={[0.045, 2.22, 0.045]} />
           <meshStandardMaterial
-            color="#00f0ff"
-            emissive="#00f0ff"
+            color="#f7db05"
+            emissive="#f7db05"
             emissiveIntensity={1.8}
             toneMapped={false}
           />

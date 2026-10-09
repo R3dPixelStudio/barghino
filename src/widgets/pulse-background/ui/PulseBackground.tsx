@@ -58,15 +58,8 @@ export function CurrentControl() {
   const copy = showcase[locale];
   return (
     <div className="current-controls" data-powered={powered}>
-      <button
-        className="current-switch"
-        type="button"
-        role="switch"
-        aria-label={powered ? copy.powerOff : copy.powerOn}
-        aria-checked={powered}
-        onClick={() => store.getState().setPowered(!store.getState().powered)}
-      >
-        <span className="current-switch-icon" aria-hidden="true">
+      <div className="current-readout">
+        <span className="current-readout-icon" aria-hidden="true">
           <svg
             aria-hidden="true"
             viewBox="0 0 32 32"
@@ -78,13 +71,15 @@ export function CurrentControl() {
           </svg>
         </span>
         <span>
-          <small>{powered ? copy.live : 'BARGHINO / CURRENT'}</small>
-          <strong>{powered ? copy.powerOff : copy.powerHint}</strong>
+          <small>BARGHINO / CURRENT</small>
+          <strong>
+            {powered ? copy.live : locale === 'fa' ? 'آمادهٔ اتصال' : 'READY TO CONNECT'}
+          </strong>
         </span>
         <span className="switch-state" aria-hidden="true">
           {powered ? 'I' : 'O'}
         </span>
-      </button>
+      </div>
       <button
         className="motion-toggle"
         type="button"

@@ -78,7 +78,7 @@ function Scene({ channel, animate }: { channel: MotionChannel; animate: boolean 
         shadow-camera-bottom={-4}
         shadow-bias={-0.001}
       />
-      <pointLight position={[-3, 0, 2]} color="#00f0ff" intensity={5} distance={9} />
+      <pointLight position={[-3, 0, 2]} color="#f7db05" intensity={5} distance={9} />
       <Suspense fallback={null}>
         <Environment resolution={quality === 'low' ? 64 : 128} frames={1}>
           <Lightformer

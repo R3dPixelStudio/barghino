@@ -36,7 +36,7 @@ function ContextLifecycle({ onLost }: { onLost: () => void }) {
 }
 
 function Switchgear({ powered }: { powered: boolean }) {
-  const color = powered ? '#00f0ff' : '#263c42';
+  const color = powered ? '#f7db05' : '#263c42';
   return (
     <group position={[0, -0.15, 0]}>
       {[-1.12, 0, 1.12].map((x, index) => (

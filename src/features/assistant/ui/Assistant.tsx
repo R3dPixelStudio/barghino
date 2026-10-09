@@ -104,6 +104,7 @@ export function Assistant({ locale }: { locale: Locale }) {
         className="assistant-launcher"
         type="button"
         aria-haspopup="dialog"
+        aria-label={showcase[locale].assistant}
         onClick={() => dialog.current?.showModal()}
       >
         <span className="assistant-symbol" aria-hidden="true">

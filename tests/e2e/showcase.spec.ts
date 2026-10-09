@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { conceptGallery } from '../../src/shared/config/showcase';
 
 test('Persian and English landing content is server rendered without JavaScript', async ({
   browser,
@@ -23,30 +24,83 @@ test('the switch energizes the shader and the carousel centers selected media', 
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/fa/');
   await expect(page.locator('.pulse-background')).toHaveAttribute('data-ready', 'true');
-  await page.getByRole('switch').click();
+  await expect(page.getByRole('switch')).toHaveClass('signal-lens');
+  expect(
+    await page
+      .locator('html')
+      .evaluate((el) => getComputedStyle(el).getPropertyValue('--accent').trim()),
+  ).toBe('#f7db05');
+  await page.getByRole('switch').focus();
+  await page.keyboard.press('Space');
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('.pulse-background')).toHaveAttribute('data-powered', 'true');
+  await expect(page.locator('.icon-power')).toHaveAttribute('data-active', 'true');
+  await expect
+    .poll(() =>
+      page.locator('.power-rotor').evaluate((el) => getComputedStyle(el).animationPlayState),
+    )
+    .toBe('running');
+  await page.getByRole('button', { name: 'حفاظت', exact: true }).click();
+  await expect(page.locator('.icon-protection')).toHaveAttribute('data-active', 'true');
+  await expect
+    .poll(() => page.locator('.icon-protection').evaluate((el) => getComputedStyle(el).opacity))
+    .toBe('1');
   await page.getByRole('button', { name: 'هوشمندسازی', exact: true }).click();
   await expect(page.locator('.smart-signal')).toHaveAttribute('data-mode', '2');
   await expect(page.getByRole('button', { name: 'هوشمندسازی', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
+  await expect(page.locator('.icon-automation')).toHaveAttribute('data-active', 'true');
+  await expect
+    .poll(() => page.locator('.icon-power').evaluate((el) => getComputedStyle(el).opacity))
+    .toBe('0');
+  await page.getByRole('switch').click();
+  await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+  await expect(page.locator('.icon-power')).toHaveAttribute('data-active', 'true');
+  await expect
+    .poll(() =>
+      page.locator('.lens-orbit').evaluate((el) => getComputedStyle(el).animationPlayState),
+    )
+    .toBe('paused');
+  await page.getByRole('switch').click();
+  await expect
+    .poll(() => page.locator('.icon-automation').evaluate((el) => getComputedStyle(el).opacity))
+    .toBe('1');
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: 'test-results/landing-desktop.png' });
   await page.getByRole('button', { name: 'کار بعدی', exact: true }).click();
   await expect(page.locator('.work-gallery')).toHaveAttribute('data-selected', '1');
-  await expect(page.locator('.gallery-slide[data-active=true]')).toHaveAttribute(
+  await expect(page.locator('.gallery-slide[data-active=true] .gallery-trigger')).toHaveAttribute(
     'aria-pressed',
     'true',
   );
-  const other = page.locator('.gallery-slide').nth(2);
+  const other = page.locator('.gallery-slide').nth(2).locator('.gallery-trigger');
   await other.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('.work-gallery')).toHaveAttribute('data-selected', '2');
-  await page.locator('.gallery-slide[data-active=true]').click();
-  await expect(page.locator('.gallery-lightbox')).toBeVisible();
+  await expect(page.locator('.work-gallery')).toHaveAttribute('data-expanded', 'true');
+  await expect(page.locator('#work-details')).toHaveAttribute('aria-hidden', 'false');
+  await expect(page.locator('dialog.gallery-lightbox')).toHaveCount(0);
+  await page.waitForTimeout(850);
+  const expandedWidth = await page
+    .locator('.gallery-slide[data-active=true]')
+    .evaluate((el) => el.getBoundingClientRect().width);
+  await page
+    .locator('.work-gallery')
+    .screenshot({ path: 'test-results/gallery-expanded-desktop.png' });
   await page.keyboard.press('Escape');
-  await expect(page.locator('.gallery-lightbox')).not.toBeVisible();
+  await expect(page.locator('.work-gallery')).toHaveAttribute('data-expanded', 'false');
+  await expect(page.locator('.gallery-slide[data-active=true] .gallery-trigger')).toBeFocused();
+  await page.waitForTimeout(850);
+  const compactWidth = await page
+    .locator('.gallery-slide[data-active=true]')
+    .evaluate((el) => el.getBoundingClientRect().width);
+  expect(expandedWidth).toBeGreaterThan(compactWidth);
+  await page.locator('.gallery-slide[data-active=true] .gallery-trigger').click();
+  await expect(page.locator('.work-gallery')).toHaveAttribute('data-expanded', 'true');
+  await page.getByRole('button', { name: 'بازگشت به گالری', exact: true }).click();
+  await expect(page.locator('.work-gallery')).toHaveAttribute('data-expanded', 'false');
   await page.waitForTimeout(850);
   await page.screenshot({ path: 'test-results/gallery-desktop.png' });
   await page.locator('#brands').scrollIntoViewIfNeeded();
@@ -54,6 +108,48 @@ test('the switch energizes the shader and the carousel centers selected media', 
   await expect(page.locator('.equipment-brand')).toHaveCount(6);
   await page.screenshot({ path: 'test-results/brands-desktop.png' });
   expect(errors).toEqual([]);
+});
+
+test('expanded films use inline native controls and pause on collapse', async ({ page }) => {
+  await page.addInitScript(() => {
+    const state = window as unknown as { videoPauses: number };
+    state.videoPauses = 0;
+    const pause = HTMLMediaElement.prototype.pause;
+    HTMLMediaElement.prototype.pause = function () {
+      state.videoPauses++;
+      return pause.call(this);
+    };
+  });
+  await page.route('**/api/portfolio', (route) =>
+    route.fulfill({
+      json: [
+        {
+          ...conceptGallery[0],
+          kind: 'video',
+          src: '/test-film.mp4',
+          poster: conceptGallery[0].src,
+        },
+      ],
+    }),
+  );
+  // Lifecycle verification: decoding a real uploaded film is covered by the browser's native player.
+  await page.route('**/test-film.mp4', (route) => route.abort());
+  await page.goto('/en/');
+  await expect(page.locator('.gallery-slide')).toHaveCount(1);
+  await page.locator('.gallery-trigger').click();
+  await expect(page.locator('.gallery-slide video')).toBeFocused();
+  await expect(page.locator('.gallery-slide video')).toHaveAttribute('controls', '');
+  await expect(page.locator('dialog.gallery-lightbox')).toHaveCount(0);
+  const pauses = await page.evaluate(
+    () => (window as unknown as { videoPauses: number }).videoPauses,
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.work-gallery')).toHaveAttribute('data-expanded', 'false');
+  await expect(page.locator('.gallery-slide video')).toHaveCount(0);
+  await expect(page.locator('.gallery-trigger')).toBeFocused();
+  expect(
+    await page.evaluate(() => (window as unknown as { videoPauses: number }).videoPauses),
+  ).toBeGreaterThan(pauses);
 });
 
 test('the GPU receives the power uniform and background follows every section and rendering stops on pause and reduced motion', async ({
@@ -102,6 +198,13 @@ test('the GPU receives the power uniform and background follows every section an
   await page.waitForTimeout(200);
   expect(await count()).toBeGreaterThan(start);
   await page.getByRole('button', { name: 'Pause motion' }).click();
+  await expect(page.locator('.work-gallery')).toHaveAttribute('data-motion', 'still');
+  expect(
+    await page
+      .locator('.gallery-slide')
+      .first()
+      .evaluate((el) => getComputedStyle(el).transitionDuration),
+  ).toBe('0s');
   await page.waitForTimeout(200);
   const paused = await count();
   await page.waitForTimeout(300);
@@ -133,6 +236,26 @@ test('mobile layouts fit both directions and support swipe selection', async ({ 
       ).toBe(true);
       await expect(page.getByRole('switch')).toBeVisible();
       await expect(page.locator('.main-navigation')).toBeVisible();
+      if (width <= 390) {
+        const launcher = await page.locator('.assistant-launcher').boundingBox();
+        expect(launcher?.width).toBe(52);
+        await expect(page.locator('.assistant-launcher')).toHaveAccessibleName(
+          locale === 'fa' ? 'دستیار برقینو' : 'Barghino assistant',
+        );
+        await page.screenshot({ path: `test-results/${locale}-hero-${width}.png` });
+        await page.locator('.gallery-slide[data-active=true] .gallery-trigger').click();
+        await expect(page.locator('.work-gallery')).toHaveAttribute('data-expanded', 'true');
+        await page.waitForTimeout(850);
+        const card = await page.locator('.gallery-slide[data-active=true]').boundingBox();
+        if (!card) throw new Error('Missing expanded card');
+        expect(card.x).toBeGreaterThanOrEqual(0);
+        expect(card.x + card.width).toBeLessThanOrEqual(width + 1);
+        await page
+          .locator('.work-gallery')
+          .screenshot({ path: `test-results/${locale}-gallery-expanded-${width}.png` });
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.work-gallery')).toHaveAttribute('data-expanded', 'false');
+      }
       if (width === 390) {
         await page.screenshot({
           path: `test-results/${locale}-landing-mobile.png`,

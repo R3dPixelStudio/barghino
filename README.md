@@ -52,7 +52,7 @@ The active landing imports only the pulse Canvas. Older abstract shader/camera h
 - Locale affects both document direction and the shader's spatial composition. No negative geometry scaling. Power preference alone persists in session storage.
 - GPU writes target `material.current.uniforms`: installed Fiber copies uniform records into the live material. Browser checks verify the actual GPU power upload and draw-call settling.
 - Event listeners, observers and subscriptions clean up. R3F disposes declarative plane geometry and shader material on unmount. No background GSAP timeline is mounted by this experience.
-- The active gallery card expands and returns to color; surrounding cards remain smaller and monochrome. Previous/next, selecting a card, swiping, keyboard selection and full-screen media are supported. Films load only when opened, with native controls; closing unmounts playback.
+- The active gallery card expands and returns to color; surrounding cards remain smaller and monochrome. Previous/next, selecting a card, swiping and keyboard selection are supported. Clicking a card brings it closer inside the carousel and reveals its project note. Click again, press Escape or use the return button to collapse it. Films play inline with native controls only while expanded; collapsing or changing selection pauses and unmounts playback.
 
 ## Content operations
 
@@ -83,8 +83,10 @@ npm audit
 
 Media uses 256 KiB BLOB chunks in D1. The admin sends one chunk per request; each streaming read retrieves at most four rows (1 MiB). Byte-range requests support video seeking; public full responses use the Worker Cache API and immutable browser caching. The media library is capped at 400 MB, reserving room below D1 Free's 500 MB database limit for content and SQLite overhead. Abandoned uploads expire after an hour and are cleared on the next upload. Admin shows usage and can delete unused media. Article/gallery references are transactionally protected; referenced files cannot be removed. Files are public and browser/edge cached copies may remain after deletion. This is a bounded library for compressed images and short films, not unlimited video hosting.
 
-The Edge suite uses port 3200 and isolated test content. It verifies server HTML, mobile layouts, carousel/swipe/dialog controls, actual GPU uniforms and pause/reduced-motion and cross-section behavior, context loss, locale switching, journal publishing, portfolio administration, guided enquiry persistence and assistant success/failure UI. Groq responses in browser tests are mocked; unit tests check the real server request construction with a substituted provider transport. Worker dry-run bundles without deploying. Remote D1 and Access sign-in need the configured Cloudflare account.
+The Edge suite uses port 3200 and isolated test content. It verifies server HTML, mobile layouts, carousel/swipe/inline expansion controls, actual GPU uniforms and pause/reduced-motion and cross-section behavior, context loss, locale switching, journal publishing, portfolio administration, guided enquiry persistence and assistant success/failure UI. Groq responses in browser tests are mocked; unit tests check the real server request construction with a substituted provider transport. Worker dry-run bundles without deploying. Remote D1 and Access sign-in need the configured Cloudflare account.
 
 Concept preview prompts and asset provenance: [visual assets](docs/VISUAL-ASSETS.md).
 
 `test:d1` runs an isolated Miniflare D1/Worker check for binary uploads, ranges, protected admin and transactional file deletion. It creates no remote resources.
+
+The circular landing lens is the sole power switch. Its power glyph and concentric rings rotate while live; protection and automation blend in their own glyphs. All animations honor pause, visibility and reduced motion. The accent is `#f7db05` throughout the DOM, shader, editor, journal and favicon.

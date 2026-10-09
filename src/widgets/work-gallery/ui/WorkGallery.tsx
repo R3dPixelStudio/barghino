@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { useExperience } from '@/entities/experience/model/provider';
 import { conceptGallery, showcase, type GalleryItem } from '@/shared/config/showcase';
 import type { Locale } from '@/shared/config/locale';
 
@@ -23,8 +24,11 @@ function WorkMedia({
 }) {
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    if (!active) video.current?.pause();
-  }, [active]);
+    const element = video.current;
+    if (!active || !full) element?.pause();
+    else element?.focus({ preventScroll: true });
+    return () => element?.pause();
+  }, [active, full]);
   if (item.kind === 'video' && active && full)
     return (
       // biome-ignore lint/a11y/useMediaCaption: Silent films use their authored description; films with speech support uploaded WebVTT captions.
@@ -33,6 +37,7 @@ function WorkMedia({
         src={item.src}
         poster={item.poster || undefined}
         controls
+        tabIndex={0}
         playsInline
         preload="metadata"
         aria-label={locale === 'fa' ? item.titleFa : item.titleEn}
@@ -70,18 +75,48 @@ function WorkMedia({
 }
 
 export function WorkGallery({ locale }: { locale: Locale }) {
+  const paused = useExperience((s) => s.motionPaused);
+  const reduced = useExperience((s) => s.reducedMotion);
   const [items, setItems] = useState<GalleryItem[]>(conceptGallery);
   const [selected, setSelected] = useState(0);
   const [expanded, setExpanded] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef(false);
   const drag = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
   const copy = showcase[locale];
   const fa = locale === 'fa';
   const current = items[selected] ?? items[0];
   const choose = useCallback(
-    (index: number) => setSelected((index + items.length) % items.length),
+    (index: number) => {
+      setSelected((index + items.length) % items.length);
+      setExpanded(false);
+    },
     [items.length],
   );
+  const collapse = useCallback(() => {
+    restoreFocus.current = true;
+    setExpanded(false);
+  }, []);
+  useEffect(() => {
+    if (!expanded && restoreFocus.current) {
+      root.current
+        ?.querySelector<HTMLButtonElement>('[data-active="true"] .gallery-trigger')
+        ?.focus({ preventScroll: true });
+      restoreFocus.current = false;
+    }
+    if (!expanded) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Escape' &&
+        !document.fullscreenElement &&
+        event.target instanceof Node &&
+        root.current?.contains(event.target)
+      )
+        collapse();
+    };
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [expanded, collapse]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -94,6 +129,7 @@ export function WorkGallery({ locale }: { locale: Locale }) {
         if (!controller.signal.aborted && published.length) {
           setItems(published);
           setSelected(0);
+          setExpanded(false);
         }
       })
       .catch(() => {
@@ -101,20 +137,24 @@ export function WorkGallery({ locale }: { locale: Locale }) {
       });
     return () => controller.abort();
   }, []);
-  useEffect(() => {
-    const currentDialog = dialog.current;
-    const closed = () => setExpanded(false);
-    currentDialog?.addEventListener('close', closed);
-    return () => currentDialog?.removeEventListener('close', closed);
-  }, []);
   if (!current) return null;
   return (
-    <div className="work-gallery" data-selected={selected}>
+    <div
+      className="work-gallery"
+      ref={root}
+      data-selected={selected}
+      data-expanded={expanded}
+      data-motion={paused || reduced ? 'still' : 'full'}
+    >
       <section
         className="gallery-viewport"
         aria-roledescription="carousel"
         aria-label={fa ? 'گالری کارنامه و پروژه‌ها' : 'Selected work gallery'}
         onPointerDown={(event) => {
+          if ((event.target as Element).closest('video')) {
+            drag.current = null;
+            return;
+          }
           if (event.button === 0)
             drag.current = {
               x: event.clientX,
@@ -143,14 +183,11 @@ export function WorkGallery({ locale }: { locale: Locale }) {
           const offset = distance(index, selected, items.length);
           const active = offset === 0;
           return (
-            <button
+            <div
               className="gallery-slide"
               key={item.id}
-              type="button"
               data-active={active}
-              aria-pressed={active}
-              aria-label={`${fa ? item.titleFa : item.titleEn}${active ? '' : ` — ${fa ? 'انتخاب' : 'Select'}`}`}
-              tabIndex={Math.abs(offset) < 3 ? 0 : -1}
+              data-expanded={active && expanded}
               style={
                 {
                   '--offset': offset * (fa ? -1 : 1),
@@ -159,21 +196,31 @@ export function WorkGallery({ locale }: { locale: Locale }) {
                   visibility: Math.abs(offset) > 3 ? 'hidden' : 'visible',
                 } as React.CSSProperties
               }
-              onClick={() => {
-                if (drag.current?.dragged) {
-                  drag.current = null;
-                  return;
-                }
-                if (!active) choose(index);
-                else {
-                  setExpanded(true);
-                  dialog.current?.showModal();
-                }
-              }}
             >
-              <WorkMedia item={item} active={active} locale={locale} />
+              <WorkMedia item={item} active={active} full={active && expanded} locale={locale} />
+              <button
+                className="gallery-trigger"
+                type="button"
+                aria-pressed={active}
+                aria-expanded={active && expanded}
+                aria-controls={active ? 'work-details' : undefined}
+                aria-label={`${fa ? item.titleFa : item.titleEn} — ${active && expanded ? (fa ? 'بازگشت به گالری' : 'Back to gallery') : copy.open}`}
+                tabIndex={Math.abs(offset) < 3 ? 0 : -1}
+                hidden={active && expanded && item.kind === 'video'}
+                onClick={() => {
+                  if (drag.current?.dragged) {
+                    drag.current = null;
+                    return;
+                  }
+                  if (!active) {
+                    choose(index);
+                    setExpanded(true);
+                  } else if (expanded) collapse();
+                  else setExpanded(true);
+                }}
+              />
               <span className="slide-corner" aria-hidden="true">
-                {item.kind === 'video' ? '▷' : '↗'}
+                {active && expanded ? '−' : item.kind === 'video' ? '▷' : '＋'}
               </span>
               <span className="slide-number" aria-hidden="true">
                 {String(index + 1).padStart(2, '0')}
@@ -181,20 +228,30 @@ export function WorkGallery({ locale }: { locale: Locale }) {
               {item.concept && (
                 <span className="concept-chip">{fa ? 'پیش‌نمایش مفهومی' : 'CONCEPT PREVIEW'}</span>
               )}
-            </button>
+            </div>
           );
         })}
       </section>
       <div className="gallery-caption">
         <div aria-live="polite" aria-atomic="true">
           <span className="eyebrow">{fa ? current.categoryFa : current.categoryEn}</span>
-          <h3>{fa ? current.titleFa : current.titleEn}</h3>
+          <h3 id="work-caption-title">{fa ? current.titleFa : current.titleEn}</h3>
           <p>
             {current.location}
             {current.year ? ` / ${current.year}` : ''}
           </p>
         </div>
         <div className="gallery-controls">
+          {expanded && (
+            <button
+              className="gallery-collapse"
+              type="button"
+              aria-label={fa ? 'بازگشت به گالری' : 'Back to gallery'}
+              onClick={collapse}
+            >
+              <span aria-hidden="true">−</span>
+            </button>
+          )}
           <span className="gallery-position" dir="ltr">
             {String(selected + 1).padStart(2, '0')}
             <i />
@@ -208,32 +265,20 @@ export function WorkGallery({ locale }: { locale: Locale }) {
           </button>
         </div>
       </div>
+      <section
+        id="work-details"
+        className="gallery-details"
+        aria-labelledby="work-caption-title"
+        aria-hidden={!expanded}
+        inert={!expanded}
+      >
+        <div>
+          <p>{fa ? current.descriptionFa : current.descriptionEn}</p>
+        </div>
+      </section>
       {items.every((item) => item.concept) && (
         <p className="gallery-preview-note">{copy.previewNote}</p>
       )}
-      <dialog ref={dialog} className="gallery-lightbox" aria-labelledby="gallery-lightbox-title">
-        <button
-          className="dialog-close"
-          type="button"
-          aria-label={fa ? 'بستن نمایش کامل' : 'Close full screen'}
-          onClick={() => dialog.current?.close()}
-        >
-          ×
-        </button>
-        {expanded && <WorkMedia key={current.id} item={current} active full locale={locale} />}
-        <div>
-          <h3 id="gallery-lightbox-title">{fa ? current.titleFa : current.titleEn}</h3>
-          <p>{fa ? current.descriptionFa : current.descriptionEn}</p>
-          <div className="lightbox-controls">
-            <button type="button" aria-label={copy.previous} onClick={() => choose(selected - 1)}>
-              ←
-            </button>
-            <button type="button" aria-label={copy.next} onClick={() => choose(selected + 1)}>
-              →
-            </button>
-          </div>
-        </div>
-      </dialog>
     </div>
   );
 }

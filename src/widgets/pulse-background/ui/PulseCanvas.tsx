@@ -36,7 +36,7 @@ void main(){
   float grid=(1.0-smoothstep(0.006,0.02,min(gridx,gridy)))*(0.009+aura*0.5);
   float power=0.10+uPower*0.90;
   float energy=(signal+bloom)*edge*power+ring+aura;
-  gl_FragColor=vec4(vec3(0.0,0.78,0.9)*energy+vec3(0.1,0.2,0.23)*grid,min(0.72,energy*0.64+grid));
+  gl_FragColor=vec4(vec3(0.96863,0.85882,0.01961)*energy+vec3(0.23,0.21,0.1)*grid,min(0.72,energy*0.64+grid));
 }`;
 
 class Boundary extends Component<
