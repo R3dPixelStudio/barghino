@@ -11,7 +11,7 @@ test('Persian and English landing content is server rendered without JavaScript'
     await expect(page.locator('html')).toHaveAttribute('dir', locale === 'fa' ? 'rtl' : 'ltr');
     await expect(page.locator('h1')).toBeVisible();
     await expect(page.locator('.main-navigation')).toBeVisible();
-    expect(await page.locator('h1').innerText()).toContain(locale === 'fa' ? 'جریان' : 'Current.');
+    expect(await page.locator('h1').innerText()).toContain(locale === 'fa' ? 'برق' : 'Power.');
     expect(await page.locator('main > section').count()).toBe(4);
   }
   await context.close();
@@ -22,9 +22,13 @@ test('the switch energizes the shader and the carousel centers selected media', 
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
   await page.goto('/fa/');
   await expect(page.locator('.pulse-background')).toHaveAttribute('data-ready', 'true');
   await expect(page.getByRole('switch')).toHaveClass('signal-lens');
+  await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   expect(
     await page
       .locator('html')
@@ -32,14 +36,12 @@ test('the switch energizes the shader and the carousel centers selected media', 
   ).toBe('#f7db05');
   await page.getByRole('switch').focus();
   await page.keyboard.press('Space');
+  await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+  await expect(page.locator('.signal-story')).toContainText('جریان قطع است');
+  await page.keyboard.press('Space');
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('.pulse-background')).toHaveAttribute('data-powered', 'true');
   await expect(page.locator('.icon-power')).toHaveAttribute('data-active', 'true');
-  await expect
-    .poll(() =>
-      page.locator('.power-rotor').evaluate((el) => getComputedStyle(el).animationPlayState),
-    )
-    .toBe('running');
   await page.getByRole('button', { name: 'حفاظت', exact: true }).click();
   await expect(page.locator('.icon-protection')).toHaveAttribute('data-active', 'true');
   await expect
@@ -58,16 +60,13 @@ test('the switch energizes the shader and the carousel centers selected media', 
   await page.getByRole('switch').click();
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
   await expect(page.locator('.icon-power')).toHaveAttribute('data-active', 'true');
-  await expect
-    .poll(() =>
-      page.locator('.lens-orbit').evaluate((el) => getComputedStyle(el).animationPlayState),
-    )
-    .toBe('paused');
+  await expect(page.locator('.system-live')).toContainText('ISOLATED');
   await page.getByRole('switch').click();
   await expect
     .poll(() => page.locator('.icon-automation').evaluate((el) => getComputedStyle(el).opacity))
     .toBe('1');
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.waitForTimeout(100);
   await page.screenshot({ path: 'test-results/landing-desktop.png' });
   await page.getByRole('button', { name: 'کار بعدی', exact: true }).click();
   await expect(page.locator('.work-gallery')).toHaveAttribute('data-selected', '1');
@@ -160,15 +159,46 @@ test('the GPU receives the power uniform and background follows every section an
       drawCount: number;
       energyPower: number;
       side: number;
+      tapAge: number;
+      coreCenter: number[];
     };
     target.drawCount = 0;
     target.energyPower = 0;
     target.side = 0;
+    target.tapAge = 10;
+    target.coreCenter = [];
     const names = new WeakMap<WebGLUniformLocation, string>();
     for (const proto of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
       const draw = proto.drawElements;
       proto.drawElements = function (...args) {
         target.drawCount++;
+        const program = this.getParameter(this.CURRENT_PROGRAM);
+        const diffuseLocation = this.getUniformLocation(program, 'diffuse');
+        const diffuse = diffuseLocation && this.getUniform(program, diffuseLocation);
+        // The front of the core has a unique material; project its actual GPU position.
+        if (
+          diffuse &&
+          Math.abs(diffuse[0] - 0.00699541) < 0.00001 &&
+          Math.abs(diffuse[1] - 0.00972122) < 0.00001
+        ) {
+          const matrix = (name: string) => {
+            const location = this.getUniformLocation(program, name);
+            if (!location) throw new Error(`Core matrix missing: ${name}`);
+            return this.getUniform(program, location);
+          };
+          const multiply = (m: Float32Array, p: number[]) =>
+            [0, 1, 2, 3].map(
+              (row) => m[row] * p[0] + m[row + 4] * p[1] + m[row + 8] * p[2] + m[row + 12] * p[3],
+            );
+          const projected = multiply(
+            matrix('projectionMatrix'),
+            multiply(matrix('modelViewMatrix'), [0, 0.05, 0, 1]),
+          );
+          target.coreCenter = [
+            ((projected[0] / projected[3] + 1) * this.drawingBufferWidth) / 2,
+            ((1 - projected[1] / projected[3]) * this.drawingBufferHeight) / 2,
+          ];
+        }
         return draw.apply(this, args);
       };
       const getLocation = proto.getUniformLocation;
@@ -181,18 +211,47 @@ test('the GPU receives the power uniform and background follows every section an
       proto.uniform1f = function (location, value) {
         if (location && names.get(location) === 'uPower') target.energyPower = value;
         if (location && names.get(location) === 'uSide') target.side = value;
+        if (location && names.get(location) === 'uTapAge') target.tapAge = value;
         return setUniform.call(this, location, value);
       };
     }
   });
   await page.goto('/en/');
   await expect(page.locator('.pulse-background')).toHaveAttribute('data-ready', 'true');
-  await page.getByRole('switch').click();
   await page.waitForTimeout(300);
   expect(
     await page.evaluate(() => (window as unknown as { energyPower: number }).energyPower),
   ).toBe(1);
   expect(await page.evaluate(() => (window as unknown as { side: number }).side)).toBe(1);
+  const assertCoreAligned = async () => {
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const center = (window as unknown as { coreCenter: number[] }).coreCenter;
+          const rect = document.querySelector('.signal-lens')?.getBoundingClientRect();
+          return rect && center.length
+            ? Math.hypot(
+                center[0] - rect.left - rect.width / 2,
+                center[1] - rect.top - rect.height / 2,
+              )
+            : Infinity;
+        }),
+      )
+      .toBeLessThan(2);
+  };
+  await assertCoreAligned();
+  await page.mouse.click(20, 150);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { tapAge: number }).tapAge))
+    .toBeLessThan(0.5);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { tapAge: number }).tapAge))
+    .toBeGreaterThan(1.65);
+  await page.getByRole('switch').click();
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { energyPower: number }).energyPower))
+    .toBe(0);
+  await page.getByRole('switch').click();
   const count = () => page.evaluate(() => (window as unknown as { drawCount: number }).drawCount);
   const start = await count();
   await page.waitForTimeout(200);
@@ -223,6 +282,7 @@ test('the GPU receives the power uniform and background follows every section an
   const reduced = await count();
   await page.waitForTimeout(300);
   expect(await count()).toBe(reduced);
+  await assertCoreAligned();
 });
 
 test('mobile layouts fit both directions and support swipe selection', async ({ page }) => {
@@ -236,7 +296,13 @@ test('mobile layouts fit both directions and support swipe selection', async ({ 
       ).toBe(true);
       await expect(page.getByRole('switch')).toBeVisible();
       await expect(page.locator('.main-navigation')).toBeVisible();
+      const core = await page.locator('#system-core').boundingBox();
+      const control = await page.getByRole('switch').boundingBox();
+      if (!core || !control) throw new Error('Missing system core');
+      expect(Math.abs(control.x + control.width / 2 - core.x - core.width / 2)).toBeLessThan(1);
+      expect(control.width).toBeGreaterThanOrEqual(44);
       if (width <= 390) {
+        await expect(page.getByRole('switch')).toBeInViewport();
         const launcher = await page.locator('.assistant-launcher').boundingBox();
         expect(launcher?.width).toBe(52);
         await expect(page.locator('.assistant-launcher')).toHaveAccessibleName(
@@ -278,6 +344,47 @@ test('mobile layouts fit both directions and support swipe selection', async ({ 
   }
 });
 
+test('a touch feeds a bounded signal and reduced motion suppresses it', async ({ browser }) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    const state = window as unknown as { tapAge: number };
+    state.tapAge = 10;
+    const names = new WeakMap<WebGLUniformLocation, string>();
+    for (const proto of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
+      const getLocation = proto.getUniformLocation;
+      proto.getUniformLocation = function (program, name) {
+        const location = getLocation.call(this, program, name);
+        if (location) names.set(location, name);
+        return location;
+      };
+      const uniform = proto.uniform1f;
+      proto.uniform1f = function (location, value) {
+        if (location && names.get(location) === 'uTapAge') state.tapAge = value;
+        return uniform.call(this, location, value);
+      };
+    }
+  });
+  await page.goto('/fa/');
+  await expect(page.locator('.pulse-background')).toHaveAttribute('data-ready', 'true');
+  await page.touchscreen.tap(16, 165);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { tapAge: number }).tapAge))
+    .toBeLessThan(0.5);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { tapAge: number }).tapAge))
+    .toBeGreaterThan(1.65);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('.work-gallery')).toHaveAttribute('data-motion', 'still');
+  await page.touchscreen.tap(16, 165);
+  await page.waitForTimeout(150);
+  expect(await page.evaluate(() => (window as unknown as { tapAge: number }).tapAge)).toBe(10);
+  await context.close();
+});
+
 test('WebGL loss keeps the fallback, navigation and switch usable', async ({ page }) => {
   await page.goto('/en/');
   await expect(page.locator('.pulse-background')).toHaveAttribute('data-ready', 'true');
@@ -286,6 +393,9 @@ test('WebGL loss keeps the fallback, navigation and switch usable', async ({ pag
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
   });
   await expect(page.locator('canvas')).toHaveCount(0);
+  await expect(page.locator('.system-fallback')).toHaveCSS('opacity', '0.9');
+  await page.getByRole('switch').click();
+  await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
   await page.getByRole('switch').click();
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('link', { name: '02 Selected work' }).click();
@@ -298,6 +408,9 @@ test('locale changes preserve power and mirror document direction', async ({ pag
   await page.getByRole('link', { name: 'Switch to English' }).click();
   await expect(page).toHaveURL(/\/en\/$/);
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+  await page.getByRole('switch').click();
+  await page.reload();
   await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
 });
 

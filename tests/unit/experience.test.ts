@@ -3,6 +3,15 @@ import { createExperienceStore } from '@/entities/experience/model/store';
 import { resolveLocale } from '@/shared/config/locale';
 
 describe('route locale and scene composition', () => {
+  it('connects the system on a fresh visit and allows deliberate isolation', () => {
+    const store = createExperienceStore('fa');
+    expect(store.getState().powered).toBe(true);
+    store.getState().setPowered(false);
+    expect(store.getState().powered).toBe(false);
+    store.getState().setSignalMode(2);
+    expect(store.getState().powered).toBe(true);
+    expect(store.getState().signalMode).toBe(2);
+  });
   it('rejects unknown and nested paths instead of treating them as Persian', () => {
     expect(resolveLocale()).toBe('fa');
     expect(resolveLocale(['en'])).toBe('en');

@@ -25,7 +25,7 @@ export function createExperienceStore(locale: Locale) {
   return createStore<ExperienceState>()((set) => ({
     locale,
     composition: compositionFor(locale),
-    powered: false,
+    powered: true,
     motionPaused: false,
     // Conservative until the browser reports the user's preference.
     reducedMotion: true,

@@ -18,7 +18,9 @@ export function ExperienceProvider({ locale, children }: { locale: Locale; child
 
   useEffect(() => {
     try {
-      store.getState().setPowered(sessionStorage.getItem('barghino.power') === 'on');
+      const preference = sessionStorage.getItem('barghino.power');
+      if (preference === 'on' || preference === 'off')
+        store.getState().setPowered(preference === 'on');
     } catch {
       // Storage can be disabled; the switch still works for this page.
     }

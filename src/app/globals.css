@@ -194,7 +194,7 @@ h3 {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.8;
+  opacity: 1;
 }
 .pulse-background > div:not(.pulse-fallback) {
   position: absolute !important;
@@ -202,7 +202,6 @@ h3 {
 }
 .pulse-background canvas {
   opacity: 0;
-  transition: opacity 0.6s;
 }
 .pulse-background[data-ready="true"] canvas {
   opacity: 1;
@@ -212,13 +211,13 @@ h3 {
   inset: 35% -4% 15%;
   opacity: 0.15;
   transition: opacity 0.5s;
-  transform: rotate(-12deg);
+  transform: none;
 }
 .pulse-fallback span {
   display: block;
-  block-size: 38px;
+  block-size: 46px;
   border-block-end: 1px solid var(--accent);
-  border-radius: 50%;
+  border-radius: 0;
 }
 [data-powered="true"] .pulse-fallback {
   opacity: 0.4;
@@ -248,7 +247,7 @@ h3 {
 .hero-editorial {
   position: relative;
   z-index: 1;
-  inline-size: min(85%, 1240px);
+  inline-size: 54%;
 }
 .eyebrow {
   display: flex;
@@ -1302,7 +1301,7 @@ textarea {
     display: none;
   }
   .pulse-background {
-    opacity: 0.65;
+    opacity: 1;
   }
   .work-section {
     padding-block: 70px 35px;
@@ -1526,137 +1525,150 @@ html[lang="fa"] .landing-registration {
   left: var(--gutter);
 }
 
-/* The signal lens is an abstract control visualization, never a wiring diagram. */
+/* One coordinated system: a DOM control over a procedural WebGL assembly. */
 .smart-signal {
   position: absolute;
   inset-inline-end: var(--gutter);
-  inset-block-start: 125px;
-  inline-size: clamp(300px, 30vw, 460px);
+  inset-block-start: 84px;
+  inline-size: clamp(390px, 44vw, 650px);
   z-index: 1;
 }
 .signal-registration {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   font:
-    9px "Geist Variable",
+    8px "Geist Variable",
     sans-serif;
-  letter-spacing: 0.12em;
-  color: #888e90;
+  letter-spacing: 0.14em;
+  color: #858c8a;
 }
-.signal-registration > span:last-child {
-  color: var(--accent);
-  font-size: 18px;
+.system-live {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #b7bbae;
+}
+.system-live i {
+  inline-size: 4px;
+  block-size: 4px;
+  border-radius: 50%;
+  background: #6a716d;
+}
+.smart-signal[data-powered="true"] .system-live i {
+  background: var(--accent);
+  box-shadow: 0 0 8px #f7db0540;
+}
+.system-stage {
+  position: relative;
+  aspect-ratio: 620 / 480;
+  margin-block: 20px 12px;
+}
+.system-stage::before,
+.system-stage::after {
+  content: "";
+  position: absolute;
+  inline-size: 20px;
+  block-size: 20px;
+  border-color: #888c7e40;
+  border-style: solid;
+}
+.system-stage::before {
+  inset: 0 auto auto 0;
+  border-width: 1px 0 0 1px;
+}
+.system-stage::after {
+  inset: auto 0 0 auto;
+  border-width: 0 1px 1px 0;
+}
+.system-fallback {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  opacity: 0.9;
+}
+.system-fallback path {
+  stroke: #777d60;
+  stroke-width: 2;
+}
+.smart-signal[data-powered="true"] .system-fallback path {
+  stroke: #f7db05;
+}
+.showcase-shell:has(.pulse-background[data-ready="true"]) .system-fallback {
+  opacity: 0;
+}
+.system-index {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 25px;
+  color: #7a837b;
+  font:
+    8px "Geist Variable",
+    sans-serif;
+  letter-spacing: 0.14em;
+}
+.system-axis {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 40%;
+  display: grid;
+  gap: 18px;
+}
+.system-axis span {
+  inline-size: 10px;
+  block-size: 1px;
+  background: #9a9e8540;
 }
 .signal-lens {
-  position: relative;
-  margin-block: 14px 22px;
+  position: absolute;
+  left: 50%;
+  inset-block-start: 50%;
+  transform: translate(-50%, -50%);
+  inline-size: 24%;
   aspect-ratio: 1;
-  background: radial-gradient(circle, #f7db0508 0%, #f7db0503 48%, transparent 69%);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--accent);
+  -webkit-tap-highlight-color: transparent;
+}
+.signal-lens:hover {
+  background: #f7db0506;
+}
+.signal-lens:active {
+  background: #f7db050e;
+}
+.signal-lens:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -10px;
 }
 .signal-lens svg {
   inline-size: 100%;
   block-size: 100%;
-  stroke: #727e8450;
-  stroke-width: 1;
   overflow: visible;
 }
-.lens-boundary {
-  stroke: #737b7938;
-}
-.lens-orbit {
-  transform-origin: 200px 200px;
-}
-.lens-inner {
-  stroke: #f7db0528;
-}
-.lens-wave {
-  stroke: #56656c;
-  opacity: 0.55;
-  transition:
-    stroke 0.5s,
-    opacity 0.5s;
-}
-.lens-core {
-  fill: #192023;
-  stroke: #65797c;
-}
-
-.lens-node {
-  fill: #64868b;
-  stroke: none;
-}
-.lens-ripple {
-  stroke: var(--accent);
+.lens-icon {
+  transform-origin: 50px 50px;
+  stroke: #8c9789;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   opacity: 0;
-  transform-origin: 200px 200px;
+  transform: rotate(-28deg) scale(0.8);
+  transition:
+    opacity 0.55s,
+    transform 0.65s,
+    stroke 0.5s;
 }
-.signal-state {
-  position: absolute;
-  inset-block-end: 11%;
-  inset-inline: 0;
-  text-align: center;
-  font:
-    9px "Geist Variable",
-    sans-serif;
-  letter-spacing: 0.16em;
-  color: #778b91;
+.lens-icon[data-active="true"] {
+  opacity: 1;
+  transform: rotate(0) scale(1);
 }
-.smart-signal[data-powered="true"] .signal-lens {
-  background: radial-gradient(circle, #f7db0512 0%, #f7db0505 48%, transparent 69%);
-}
-.smart-signal[data-powered="true"] .lens-wave {
-  stroke: #f7db05;
-  opacity: 0.8;
-}
-.smart-signal[data-powered="true"] .lens-node {
-  fill: var(--accent);
-}
-.smart-signal[data-powered="true"] .lens-core {
-  stroke: #f7db0580;
-}
-.smart-signal[data-powered="true"] .signal-state {
-  color: var(--accent);
-}
-
-.lens-orbit {
-  animation: signal-orbit 30s linear infinite;
-  animation-play-state: paused;
-}
-.lens-counter-orbit {
-  transform-origin: 200px 200px;
-  animation: signal-orbit 19s linear infinite reverse;
-  animation-play-state: paused;
-  stroke: #f7db055a;
-}
-.lens-wave {
-  stroke-dasharray: 190 70;
-  animation: signal-flow 4s linear infinite;
-  animation-play-state: paused;
-}
-.lens-ripple {
-  animation: signal-ripple 4s ease-out infinite;
-  animation-play-state: paused;
-}
-.smart-signal[data-powered="false"] .lens-ripple {
-  visibility: hidden;
-}
-.ripple-two {
-  animation-delay: 2s;
-}
-.smart-signal[data-animate="true"] .lens-orbit,
-.smart-signal[data-animate="true"] .lens-counter-orbit,
-.smart-signal[data-animate="true"] .lens-wave,
-.smart-signal[data-animate="true"] .lens-ripple {
-  animation-play-state: running;
-}
-
-.smart-signal[data-mode="1"] .lens-wave {
-  transform: scaleY(0.55);
-  transform-origin: 200px 200px;
-}
-.smart-signal[data-mode="2"] .lens-wave {
-  transform: rotate(90deg);
-  transform-origin: 200px 200px;
+.smart-signal[data-powered="true"] .lens-icon {
+  stroke: var(--accent);
 }
 .signal-modes {
   padding: 0;
@@ -1664,20 +1676,21 @@ html[lang="fa"] .landing-registration {
   min-inline-size: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  background: #15191de0;
+  border: 0;
+  border-block: 1px solid var(--line);
+  background: none;
 }
 .signal-modes button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-block-size: 58px;
+  padding: 10px 4px;
+  font-size: 12px;
   background: none;
   border: 0;
-  min-block-size: 62px;
-  padding: 10px 6px;
-  font-size: 11px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
+  color: #a2a9a3;
   transition:
     color 0.3s,
     background 0.3s;
@@ -1687,42 +1700,35 @@ html[lang="fa"] .landing-registration {
 }
 .signal-modes button > span {
   font:
-    9px "Geist Variable",
+    8px "Geist Variable",
     sans-serif;
-  color: #879597;
+  color: #78857d;
 }
 .signal-modes button[aria-pressed="true"] {
   color: var(--accent);
-  background: #f7db050a;
+  background: #f7db0505;
 }
 .signal-modes button[aria-pressed="true"] > span {
   color: var(--accent);
 }
-.signal-hint {
-  color: #92999b;
-  font-size: 11px;
+.signal-story {
+  min-block-size: 48px;
+  display: grid;
+  place-items: center;
   text-align: center;
-  margin-block: 15px 0;
 }
-@keyframes signal-orbit {
-  to {
-    transform: rotate(360deg);
-  }
+.signal-story p {
+  margin: 18px 0 0;
+  font-size: 13px;
+  color: #c0c4b8;
+  line-height: 1.7;
 }
-@keyframes signal-flow {
-  to {
-    stroke-dashoffset: -520;
-  }
-}
-@keyframes signal-ripple {
-  from {
-    transform: scale(0.6);
-    opacity: 0.4;
-  }
-  to {
-    transform: scale(1.65);
-    opacity: 0;
-  }
+.signal-hint {
+  font-size: 10px;
+  color: #7e8980;
+  text-align: center;
+  margin: 12px 0 0;
+  line-height: 1.8;
 }
 .brands-section {
   padding: 55px var(--gutter) 100px;
@@ -1835,14 +1841,14 @@ html[lang="en"] .hero-editorial h1 {
     font-size: 27px;
   }
   .smart-signal {
-    inline-size: 300px;
+    inline-size: clamp(340px, 42vw, 450px);
   }
 }
 @media (max-width: 850px) {
   .smart-signal {
     position: relative;
     inset: auto;
-    inline-size: min(350px, 100%);
+    inline-size: min(450px, 100%);
     align-self: center;
     margin-block: 42px 0;
   }
@@ -1858,14 +1864,39 @@ html[lang="en"] .hero-editorial h1 {
   }
 }
 @media (max-width: 720px) {
+  .hero-editorial {
+    display: contents;
+  }
+  .hero-editorial .eyebrow {
+    order: 0;
+  }
+  .hero-editorial h1 {
+    order: 1;
+  }
+  html[lang="fa"] .hero-editorial h1 {
+    font-size: clamp(54px, 14vw, 76px);
+    line-height: 1.2;
+  }
+  .hero-lower {
+    order: 3;
+    margin-block-start: 30px;
+  }
+  .hero-bottom {
+    order: 4;
+    margin-block-start: 30px;
+  }
+  .smart-signal {
+    order: 2;
+    margin-block-start: 30px;
+  }
   html[lang="en"] .hero-editorial h1 {
     font-size: clamp(59px, 12vw, 88px);
   }
   .smart-signal {
-    inline-size: min(320px, 100%);
+    inline-size: min(380px, 100%);
   }
   .signal-lens {
-    margin-block: 6px 12px;
+    margin: 0;
   }
   .signal-modes button {
     min-block-size: 57px;
@@ -1906,84 +1937,6 @@ html[lang="en"] .hero-editorial h1 {
   }
 }
 
-/* A single, keyboard-accessible circular power control. */
-.signal-lens {
-  display: block;
-  inline-size: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  color: var(--accent);
-  transition:
-    transform 0.35s,
-    background 0.5s;
-  -webkit-tap-highlight-color: transparent;
-}
-.signal-lens:hover {
-  transform: scale(1.015);
-}
-.signal-lens:active {
-  transform: scale(0.97);
-}
-.signal-lens:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 4px;
-}
-.lens-core-rim {
-  fill: #161713;
-  stroke: url(#signal-rim);
-  stroke-width: 2;
-}
-.lens-core {
-  fill: url(#signal-face);
-  stroke: #8a8c685c;
-  stroke-width: 1;
-  transition: stroke 0.5s;
-}
-.lens-core-dial {
-  stroke: #8e927b55;
-  transform-origin: 200px 200px;
-  animation: signal-orbit 24s linear infinite reverse;
-  animation-play-state: paused;
-}
-.lens-satellite {
-  fill: var(--accent);
-  stroke: none;
-}
-.lens-icon {
-  transform-origin: 200px 200px;
-  stroke: #a1a389;
-  stroke-width: 2.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0;
-  transform: rotate(-65deg) scale(0.6);
-  transition:
-    opacity 0.55s,
-    transform 0.65s cubic-bezier(0.22, 0.68, 0.14, 1),
-    stroke 0.5s;
-}
-.lens-icon[data-active="true"] {
-  opacity: 1;
-  transform: rotate(0deg) scale(1);
-}
-.smart-signal[data-powered="true"] .lens-icon {
-  stroke: var(--accent);
-}
-.smart-signal[data-powered="true"] .lens-core-dial {
-  stroke: #f7db0590;
-}
-.power-rotor {
-  transform-origin: 200px 200px;
-  animation: signal-orbit 18s linear infinite;
-  animation-play-state: paused;
-}
-.smart-signal[data-animate="true"] .lens-core-dial {
-  animation-play-state: running;
-}
-.smart-signal[data-animate="true"][data-mode="0"] .power-rotor {
-  animation-play-state: running;
-}
 .current-readout {
   min-block-size: 65px;
   padding: 0;

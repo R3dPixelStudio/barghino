@@ -1,6 +1,6 @@
-# Barghino — current, considered
+# Barghino — power, in concert
 
-Persian-first electrical contracting showcase: a reactive site-wide pulse shader and interactive smart-current lens, a moving media gallery and a four-question project brief. Next.js statically renders the bilingual landing and admin shell. A Cloudflare Worker serves the live CMS, journal, media and Groq assistant.
+Persian-first electrical contracting showcase: an integrated-system sculpture, quiet signals travelling along fixed routes, a moving media gallery and a four-question project brief. Next.js statically renders the bilingual landing and admin shell. A Cloudflare Worker serves the live CMS, journal, media and Groq assistant.
 
 ## Local preview
 
@@ -27,9 +27,9 @@ To connect Groq locally, create the ignored `.dev.vars` file containing `GROQ_AP
 ```text
 src/app/[[...locale]]/            server-rendered home, metadata and fa/en root layout
 src/app/admin/                   separate noindex admin shell
-src/widgets/pulse-background/    one demand-rendered shader Canvas and DOM switch
+src/widgets/pulse-background/    one Canvas, procedural system core, flow/metal shaders and DOM control
 src/widgets/brands/              equipment and installation tool brands
-src/widgets/work-gallery/        mirrored carousel, swipe controls and media dialog
+src/widgets/work-gallery/        mirrored carousel, swipe controls and inline media expansion
 src/features/project-brief/     four professional selections and contact handoff
 src/features/assistant/         accessible assistant dialog; in-memory conversation
 src/features/editor/            journal, media, portfolio, assistant settings and inbox
@@ -47,11 +47,12 @@ The active landing imports only the pulse Canvas. Older abstract shader/camera h
 ## Experience and performance
 
 - No building model, GLB, HDR, texture downloads or postprocessing in the landing.
-- One plane, one shader material, DPR 1, demand rendering. Powered animation runs only while visible and motion is enabled. Pointer movement updates uniforms without React state updates per frame.
-- The DOM switch works with keyboard input and announces its state. Navigation is always available. WebGL failure exposes a static pulse fallback.
+- One Canvas at DPR 1 with 30 fps idle animation and event-driven demand rendering. The background shader uses stationary segmented routes and moving signal packets. Click/touch injects one bounded signal; a later tap replaces it. No expanding rings, sparks or geometry distortion. Pausing, isolation, reduced motion and hidden tabs stop continuous rendering and discard transient signals.
+- The landing core consists of low-poly extruded plates, a machined circular isolator and six procedural conductors. Its three routes represent infrastructure, protection and automation. Metal uses a subtle procedural finish and a 64px studio environment captured once with Drei Lightformers; no environment asset is fetched. Pointer movement adjusts the viewing angle gently. The core is culled when its DOM anchor leaves the viewport.
+- The system is connected by default. The keyboard-accessible core isolates/reconnects the visual network; selecting a discipline reconnects and highlights its route. Only an explicit on/off preference is restored from session storage. WebGL failure exposes a static system illustration and background fallback. Navigation remains available.
 - Locale affects both document direction and the shader's spatial composition. No negative geometry scaling. Power preference alone persists in session storage.
 - GPU writes target `material.current.uniforms`: installed Fiber copies uniform records into the live material. Browser checks verify the actual GPU power upload and draw-call settling.
-- Event listeners, observers and subscriptions clean up. R3F disposes declarative plane geometry and shader material on unmount. No background GSAP timeline is mounted by this experience.
+- Event listeners, observers, timers and subscriptions clean up. R3F disposes declarative geometries/materials on unmount; Drei disposes the generated environment render target. DOM measurements are coalesced into the next frame after scroll, resize or font loading. Explicit negative frame priorities compute shared signals first, apply the core transform second and update conductor uniforms third; single paused frames cannot consume a stale anchor. No background GSAP timeline is mounted by this experience.
 - The active gallery card expands and returns to color; surrounding cards remain smaller and monochrome. Previous/next, selecting a card, swiping and keyboard selection are supported. Clicking a card brings it closer inside the carousel and reveals its project note. Click again, press Escape or use the return button to collapse it. Films play inline with native controls only while expanded; collapsing or changing selection pauses and unmounts playback.
 
 ## Content operations
@@ -89,4 +90,4 @@ Concept preview prompts and asset provenance: [visual assets](docs/VISUAL-ASSETS
 
 `test:d1` runs an isolated Miniflare D1/Worker check for binary uploads, ranges, protected admin and transactional file deletion. It creates no remote resources.
 
-The circular landing lens is the sole power switch. Its power glyph and concentric rings rotate while live; protection and automation blend in their own glyphs. All animations honor pause, visibility and reduced motion. The accent is `#f7db05` throughout the DOM, shader, editor, journal and favicon.
+The circular isolator is the sole power switch, aligned to the physical core in both locales. A slow machined arc rotates while connected; the glyph blends between power, protection and automation. On mobile the core follows the headline, before the introduction. The accent is `#f7db05` throughout the DOM, shader, editor, journal and favicon.
